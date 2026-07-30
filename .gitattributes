@@ -1,0 +1,19 @@
+# Store every text file with LF in the repository and check it out with LF on
+# every platform. Without this, a Windows contributor commits CRLF and everyone
+# else sees whole files as changed, which buries real diffs in review.
+* text=auto eol=lf
+
+# Binary files must never be line-ending normalized or diffed as text.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+
+# Generated: collapse it in pull requests, but still track it.
+package-lock.json linguist-generated=true -diff

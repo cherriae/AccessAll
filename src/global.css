@@ -1,0 +1,53 @@
+/**
+ * Web-only styles. Native builds ignore this file.
+ *
+ * The custom properties below back `Fonts` in `src/constants/theme.ts`, which
+ * resolves to `var(--font-*)` on web.
+ */
+
+:root {
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue',
+    Arial, sans-serif;
+  --font-serif: ui-serif, Georgia, Cambria, 'Times New Roman', serif;
+  --font-rounded: ui-rounded, 'SF Pro Rounded', system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+/* Let the OS/browser text-size preference through. */
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+/*
+ * The page background and `color-scheme` are deliberately NOT set here.
+ *
+ * This file is bundled into the JS, so its rules only apply once the bundle has
+ * downloaded and executed — too late to prevent a flash of the wrong theme.
+ * They live in `src/app/+html.tsx` instead, which lands in the HTML head and is
+ * parsed on the first paint.
+ */
+
+/*
+ * React Native Web strips the default focus ring from Pressable. Put a visible
+ * one back for keyboard users without showing it on mouse/touch press.
+ */
+:focus-visible {
+  outline: 2px solid #4f46e5;
+  outline-offset: 2px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :focus-visible {
+    outline-color: #9b97ff;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
