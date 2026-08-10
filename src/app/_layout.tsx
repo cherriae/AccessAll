@@ -5,7 +5,7 @@ import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
-import { StyleSheet } from "react-native";
+import { StyleSheet, Text as RNText, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
@@ -42,8 +42,11 @@ export default function RootLayout() {
    */
   const [isMounted, setIsMounted] = useState(false);
   const [dbReady, setDbReady] = useState(false);
+  const [dbError, setDbError] = useState<string | null>(null);
 
   useEffect(() => {
+    // The static web render must stay theme-neutral until hydration completes.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsMounted(true);
   }, []);
 
@@ -51,12 +54,15 @@ export default function RootLayout() {
     let cancelled = false;
 
     setupDB()
-      .catch((error) => {
-        console.error("Database setup failed", error);
-      })
-      .finally(() => {
+      .then(() => {
         if (!cancelled) {
           setDbReady(true);
+        }
+      })
+      .catch((error) => {
+        console.error("Database setup failed", error);
+        if (!cancelled) {
+          setDbError(error instanceof Error ? error.message : "Unknown database error");
         }
       });
 
@@ -65,7 +71,7 @@ export default function RootLayout() {
     };
   }, []);
 
-  const isReady = isMounted && fontsLoaded && dbReady;
+  const isReady = isMounted && fontsLoaded && (dbReady || Boolean(dbError));
 
   useEffect(() => {
     if (!isReady) {
@@ -81,6 +87,16 @@ export default function RootLayout() {
     // which is already the right scheme — so the user gets one correctly themed
     // paint instead of a light-to-dark flip.
     return null;
+  }
+
+  if (dbError) {
+    return (
+      <View style={[styles.failure, { backgroundColor: colors.background }]}>
+        <RNText style={[styles.failureTitle, { color: colors.text }]}>AccessAll could not start</RNText>
+        <RNText style={{ color: colors.textSecondary }}>The local database could not be opened. Restart the app or clear its local storage.</RNText>
+        <RNText selectable style={[styles.failureCode, { color: colors.danger }]}>{dbError}</RNText>
+      </View>
+    );
   }
 
   /**
@@ -115,6 +131,10 @@ export default function RootLayout() {
               }}
             >
               <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="auth" />
+              <Stack.Screen name="settings" />
+              <Stack.Screen name="place/[id]" />
+              <Stack.Screen name="report/[id]" />
             </Stack>
           </ThemeProvider>
         </QueryClientProvider>
@@ -127,4 +147,7 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
   },
+  failure: { flex: 1, justifyContent: "center", padding: 24, gap: 12 },
+  failureTitle: { fontSize: 24, fontWeight: "700" },
+  failureCode: { fontSize: 12 },
 });

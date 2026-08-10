@@ -21,6 +21,7 @@ export type AppRoute = '/' | '/reports' | '/explore' | '/activity' | '/profile';
 
 export interface User {
   id: string;
+  email: string;
   firstName: string;
   lastName: string;
   /** Shown under the name on the profile screen. */
@@ -104,7 +105,30 @@ export interface Place {
   quietScore: number | null;
   /** True when the place has passed accessibility verification. */
   verified: boolean;
+  latitude: number;
+  longitude: number;
   features: AccessFeature[];
+  /** Street address or area description shown on the detail screen. */
+  address?: string;
+  /** Sourced context, including limitations that positive feature badges cannot express. */
+  accessibilityNote?: string;
+  /** Page used to substantiate the imported venue and accessibility information. */
+  sourceUrl?: string;
+  sourceLabel?: string;
+  /** Community-authored guide shown separately from external source information. */
+  communityGuide?: string;
+  guideAuthor?: string;
+  guideUpdatedAt?: Timestamp;
+}
+
+export interface Review {
+  id: string;
+  placeId: string;
+  authorName: string;
+  rating: number;
+  quietScore: number | null;
+  accessibilityNotes: string;
+  createdAt: Timestamp;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -120,4 +144,19 @@ export interface ActivityEvent {
   title: string;
   subtitle: string;
   occurredAt: Timestamp;
+}
+
+export interface ReportComment {
+  id: string;
+  reportId: string;
+  authorName: string;
+  body: string;
+  createdAt: Timestamp;
+}
+
+export interface AppSettings {
+  notificationsEnabled: boolean;
+  reportUpdatesEnabled: boolean;
+  voteRemindersEnabled: boolean;
+  campusName: string;
 }

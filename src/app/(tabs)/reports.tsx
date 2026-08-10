@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useRouter } from "expo-router";
 import {
     Alert,
     Modal,
@@ -39,6 +40,7 @@ const FILTERS: ChipOption<Filter>[] = [
 ];
 
 export default function ReportsScreen() {
+  const router = useRouter();
   const [filter, setFilter] = useState<Filter>("all");
   const [composerOpen, setComposerOpen] = useState(false);
   const [editingReport, setEditingReport] = useState<Report | null>(null);
@@ -65,14 +67,6 @@ export default function ReportsScreen() {
     setTitle("");
     setLocation("");
     setStatus("open");
-    setComposerOpen(true);
-  }
-
-  function openEditComposer(report: Report) {
-    setEditingReport(report);
-    setTitle(report.title);
-    setLocation(report.location);
-    setStatus(report.status);
     setComposerOpen(true);
   }
 
@@ -167,7 +161,7 @@ export default function ReportsScreen() {
               <ReportRow
                 key={report.id}
                 report={report}
-                onPress={openEditComposer}
+                onPress={(report) => router.push(`/report/${report.id}` as never)}
               />
             ))}
           </View>

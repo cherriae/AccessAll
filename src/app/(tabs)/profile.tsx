@@ -1,4 +1,5 @@
-import { Alert, Linking, StyleSheet, View } from "react-native";
+import { useRouter } from "expo-router";
+import { StyleSheet, View } from "react-native";
 
 import { Card } from "@/components/ui/card";
 import type { IconName } from "@/components/ui/icon";
@@ -53,6 +54,7 @@ const SETTINGS: SettingsItem[] = [
 ];
 
 export default function ProfileScreen() {
+  const router = useRouter();
   const brand = useAccent("campus");
   const currentUser = useCurrentUser().data;
   const signOut = useSignOut();
@@ -118,41 +120,18 @@ export default function ProfileScreen() {
               accent={item.accent}
               title={item.title}
               subtitle={item.subtitle}
-              onPress={() => {
-                if (item.id === "verified") {
-                  return Alert.alert(
-                    "Verified places",
-                    "Explore verified places on the Explore tab.",
-                  );
-                }
-
-                if (item.id === "help") {
-                  Linking.openURL("mailto:support@accessall.app").catch(() => {
-                    Alert.alert(
-                      "Help and feedback",
-                      "Email support@accessall.app for help or feedback.",
-                    );
-                  });
-                  return;
-                }
-
-                Alert.alert(item.title, item.subtitle);
-              }}
+              onPress={() => router.push('/settings' as never)}
             />
           ))}
         </View>
       </Section>
 
       <Section title="Account">
-        <ListRow
-          icon="sign-out"
-          accent="explore"
-          title="Sign out"
-          onPress={() => {
-            signOut.mutate();
-          }}
-          accessibilityHint="Signs you out of AccessAll"
-        />
+        {currentUser ? (
+          <ListRow icon="sign-out" accent="explore" title="Sign out" onPress={() => signOut.mutate()} accessibilityHint="Signs you out of AccessAll" />
+        ) : (
+          <ListRow icon="profile" accent="campus" title="Sign in or create an account" onPress={() => router.push('/auth' as never)} accessibilityHint="Opens account access" />
+        )}
       </Section>
     </Screen>
   );

@@ -42,18 +42,14 @@ export function useVotePoll() {
                 return null;
             }
 
-            await db.runAsync('UPDATE polls SET hasVoted = 1 WHERE id = ?', [id]);
-            await db.runAsync('UPDATE current_user SET votes = votes + 1');
-            await db.runAsync(
-                'INSERT INTO activity (id, kind, title, subtitle, occurredAt) VALUES (?, ?, ?, ?, ?)',
-                [
-                    `a_${Date.now()}`,
-                    'vote',
-                    `You voted on ${poll.title}`,
-                    poll.location,
-                    new Date().toISOString(),
-                ],
-            );
+            await db.withTransactionAsync(async () => {
+                await db.runAsync('UPDATE polls SET hasVoted = 1 WHERE id = ?', [id]);
+                await db.runAsync('UPDATE users SET votes = votes + 1 WHERE id = (SELECT userId FROM session WHERE singleton = 1)');
+                await db.runAsync(
+                    'INSERT INTO activity (id, kind, title, subtitle, occurredAt) VALUES (?, ?, ?, ?, ?)',
+                    [`a_${Date.now()}`, 'vote', `You voted on ${poll.title}`, poll.location, new Date().toISOString()],
+                );
+            });
 
             qc.invalidateQueries({ queryKey: ['polls'] });
             qc.invalidateQueries({ queryKey: ['currentUser'] });
