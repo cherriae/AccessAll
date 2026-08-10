@@ -1,22 +1,25 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
-import { useFonts } from 'expo-font';
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
-import { StyleSheet } from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { useFonts } from "expo-font";
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
+import { StatusBar } from "expo-status-bar";
+import { useEffect, useState } from "react";
+import { StyleSheet } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
-import { Colors } from '@/constants/theme';
-import { useScheme } from '@/hooks/use-theme';
+import { Colors } from "@/constants/theme";
+import { useScheme } from "@/hooks/use-theme";
+import { queryClient } from "@/lib/query-client";
+import { setupDB } from "../../db";
 
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const scheme = useScheme();
   const colors = Colors[scheme];
-  const base = scheme === 'dark' ? DarkTheme : DefaultTheme;
+  const base = scheme === "dark" ? DarkTheme : DefaultTheme;
 
   /**
    * The icon set is a font, so glyphs are blank until it downloads. Waiting for
@@ -38,12 +41,31 @@ export default function RootLayout() {
    * `useFonts` alone is not enough here: it reports loaded during the prerender.
    */
   const [isMounted, setIsMounted] = useState(false);
+  const [dbReady, setDbReady] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
-  const isReady = isMounted && fontsLoaded;
+  useEffect(() => {
+    let cancelled = false;
+
+    setupDB()
+      .catch((error) => {
+        console.error("Database setup failed", error);
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setDbReady(true);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const isReady = isMounted && fontsLoaded && dbReady;
 
   useEffect(() => {
     if (!isReady) {
@@ -82,18 +104,20 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
-        <ThemeProvider value={navigationTheme}>
-          <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
-          <Stack
-            screenOptions={{
-              // Screens draw their own headers via `<Screen header={...}>`.
-              headerShown: false,
-              contentStyle: { backgroundColor: colors.background },
-            }}
-          >
-            <Stack.Screen name="(tabs)" />
-          </Stack>
-        </ThemeProvider>
+        <QueryClientProvider client={queryClient}>
+          <ThemeProvider value={navigationTheme}>
+            <StatusBar style={scheme === "dark" ? "light" : "dark"} />
+            <Stack
+              screenOptions={{
+                // Screens draw their own headers via `<Screen header={...}>`.
+                headerShown: false,
+                contentStyle: { backgroundColor: colors.background },
+              }}
+            >
+              <Stack.Screen name="(tabs)" />
+            </Stack>
+          </ThemeProvider>
+        </QueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

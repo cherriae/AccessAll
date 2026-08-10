@@ -1,12 +1,12 @@
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from "react-native";
 
-import { Badge } from '@/components/ui/badge';
-import { ListRow } from '@/components/ui/list-row';
-import { Text } from '@/components/ui/text';
-import { Spacing } from '@/constants/theme';
-import { REPORT_STATUS_DISPLAY } from '@/lib/display';
-import { formatCount, formatRelativeTime } from '@/lib/format';
-import type { Report } from '@/types';
+import { Badge } from "@/components/ui/badge";
+import { ListRow } from "@/components/ui/list-row";
+import { Text } from "@/components/ui/text";
+import { Spacing } from "@/constants/theme";
+import { REPORT_STATUS_DISPLAY } from "@/lib/display";
+import { formatCount, formatRelativeTime } from "@/lib/format";
+import type { Report } from "@/types";
 
 export interface ReportRowProps {
   report: Report;
@@ -32,8 +32,8 @@ export function ReportRow({ report, onPress }: ReportRowProps) {
         `status ${status.label}`,
         `${formatCount(report.upvotes)} people affected`,
         time.long,
-      ].join('. ')}
-      accessibilityHint={onPress ? 'Opens the report' : undefined}
+      ].join(". ")}
+      accessibilityHint={onPress ? "Opens the report" : undefined}
     >
       <View style={styles.footer}>
         <Badge label={status.label} accent={status.accent} icon={status.icon} />
@@ -47,9 +47,9 @@ export function ReportRow({ report, onPress }: ReportRowProps) {
 
 const styles = StyleSheet.create({
   footer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
     gap: Spacing.two,
     marginTop: Spacing.one,
   },

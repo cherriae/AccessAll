@@ -1,5 +1,6 @@
 import type { User } from '@/types';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { db } from '../../db';
 
 type SignUpPayload = { firstName: string; lastName: string; affiliation?: string };
 type SignInPayload = { firstName: string; lastName: string };
@@ -15,6 +16,10 @@ export function useSignUp() {
                 affiliation: p.affiliation ?? '',
                 stats: { reports: 0, reviews: 0, votes: 0 },
             };
+            await db.runAsync(
+                'INSERT OR REPLACE INTO current_user (id, firstName, lastName, affiliation, reports, reviews, votes) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                [user.id, user.firstName, user.lastName, user.affiliation, user.stats.reports, user.stats.reviews, user.stats.votes],
+            );
             qc.setQueryData(['currentUser'], user);
             return user;
         },
@@ -33,6 +38,10 @@ export function useSignIn() {
                 affiliation: '',
                 stats: { reports: 0, reviews: 0, votes: 0 },
             };
+            await db.runAsync(
+                'INSERT OR REPLACE INTO current_user (id, firstName, lastName, affiliation, reports, reviews, votes) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                [user.id, user.firstName, user.lastName, user.affiliation, user.stats.reports, user.stats.reviews, user.stats.votes],
+            );
             qc.setQueryData(['currentUser'], user);
             return user;
         },
@@ -43,6 +52,7 @@ export function useSignOut() {
     const qc = useQueryClient();
     return useMutation({
         mutationFn: async () => {
+            await db.runAsync('DELETE FROM current_user');
             qc.setQueryData(['currentUser'], null);
             return null;
         },

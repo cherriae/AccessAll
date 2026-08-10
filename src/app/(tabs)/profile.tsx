@@ -1,16 +1,17 @@
-import { StyleSheet, View } from 'react-native';
+import { Alert, Linking, StyleSheet, View } from "react-native";
 
-import { Card } from '@/components/ui/card';
-import { ListRow } from '@/components/ui/list-row';
-import { Screen } from '@/components/ui/screen';
-import { Section } from '@/components/ui/section';
-import { Text } from '@/components/ui/text';
-import { Radius, Spacing } from '@/constants/theme';
-import { currentUser } from '@/data/mock';
-import { formatCount } from '@/lib/format';
-import { useAccent } from '@/hooks/use-theme';
-import type { IconName } from '@/components/ui/icon';
-import type { AccentName } from '@/constants/theme';
+import { Card } from "@/components/ui/card";
+import type { IconName } from "@/components/ui/icon";
+import { ListRow } from "@/components/ui/list-row";
+import { Screen } from "@/components/ui/screen";
+import { Section } from "@/components/ui/section";
+import { Text } from "@/components/ui/text";
+import type { AccentName } from "@/constants/theme";
+import { Radius, Spacing } from "@/constants/theme";
+import { useAccent } from "@/hooks/use-theme";
+import { useSignOut } from "@/hooks/useAuth";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { formatCount } from "@/lib/format";
 
 interface SettingsItem {
   id: string;
@@ -22,45 +23,51 @@ interface SettingsItem {
 
 const SETTINGS: SettingsItem[] = [
   {
-    id: 'access',
-    title: 'Accessibility preferences',
-    subtitle: 'Text size, motion, screen reader hints',
-    icon: 'accessibility',
-    accent: 'campus',
+    id: "access",
+    title: "Accessibility preferences",
+    subtitle: "Text size, motion, screen reader hints",
+    icon: "accessibility",
+    accent: "campus",
   },
   {
-    id: 'notifications',
-    title: 'Notifications',
-    subtitle: 'Report updates and open votes',
-    icon: 'notifications',
-    accent: 'community',
+    id: "notifications",
+    title: "Notifications",
+    subtitle: "Report updates and open votes",
+    icon: "notifications",
+    accent: "community",
   },
   {
-    id: 'verified',
-    title: 'Verified places',
-    subtitle: 'How verification works',
-    icon: 'verified',
-    accent: 'verified',
+    id: "verified",
+    title: "Verified places",
+    subtitle: "How verification works",
+    icon: "verified",
+    accent: "verified",
   },
   {
-    id: 'help',
-    title: 'Help and feedback',
-    subtitle: 'Get support or suggest an improvement',
-    icon: 'help',
-    accent: 'explore',
+    id: "help",
+    title: "Help and feedback",
+    subtitle: "Get support or suggest an improvement",
+    icon: "help",
+    accent: "explore",
   },
 ];
 
 export default function ProfileScreen() {
-  const brand = useAccent('campus');
+  const brand = useAccent("campus");
+  const currentUser = useCurrentUser().data;
+  const signOut = useSignOut();
 
-  const initials = `${currentUser.firstName.at(0) ?? ''}${currentUser.lastName.at(0) ?? ''}`;
-  const fullName = `${currentUser.firstName} ${currentUser.lastName}`;
+  const initials = currentUser
+    ? `${currentUser.firstName.at(0) ?? ""}${currentUser.lastName.at(0) ?? ""}`
+    : "GA";
+  const fullName = currentUser
+    ? `${currentUser.firstName} ${currentUser.lastName}`
+    : "Guest access";
 
   const stats = [
-    { label: 'Reports', value: currentUser.stats.reports },
-    { label: 'Reviews', value: currentUser.stats.reviews },
-    { label: 'Votes', value: currentUser.stats.votes },
+    { label: "Reports", value: currentUser?.stats.reports ?? 0 },
+    { label: "Reviews", value: currentUser?.stats.reviews ?? 0 },
+    { label: "Votes", value: currentUser?.stats.votes ?? 0 },
   ];
 
   return (
@@ -68,7 +75,11 @@ export default function ProfileScreen() {
       <Card style={styles.identity}>
         {/* Initials are decorative — the name is right beside them in text. */}
         <View style={[styles.avatar, { backgroundColor: brand.tint }]}>
-          <Text variant="title" colorValue={brand.fg} accessibilityElementsHidden>
+          <Text
+            variant="title"
+            colorValue={brand.fg}
+            accessibilityElementsHidden
+          >
             {initials}
           </Text>
         </View>
@@ -77,7 +88,7 @@ export default function ProfileScreen() {
             {fullName}
           </Text>
           <Text variant="callout" color="textSecondary">
-            {currentUser.affiliation}
+            {currentUser?.affiliation ?? "Sign in to sync your stats"}
           </Text>
         </View>
       </Card>
@@ -108,7 +119,24 @@ export default function ProfileScreen() {
               title={item.title}
               subtitle={item.subtitle}
               onPress={() => {
-                // TODO: wire up once the settings screens exist.
+                if (item.id === "verified") {
+                  return Alert.alert(
+                    "Verified places",
+                    "Explore verified places on the Explore tab.",
+                  );
+                }
+
+                if (item.id === "help") {
+                  Linking.openURL("mailto:support@accessall.app").catch(() => {
+                    Alert.alert(
+                      "Help and feedback",
+                      "Email support@accessall.app for help or feedback.",
+                    );
+                  });
+                  return;
+                }
+
+                Alert.alert(item.title, item.subtitle);
               }}
             />
           ))}
@@ -121,7 +149,7 @@ export default function ProfileScreen() {
           accent="explore"
           title="Sign out"
           onPress={() => {
-            // TODO: clear the session once auth exists.
+            signOut.mutate();
           }}
           accessibilityHint="Signs you out of AccessAll"
         />
@@ -132,16 +160,16 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
   identity: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: Spacing.three,
   },
   avatar: {
     width: 60,
     height: 60,
     borderRadius: Radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     flexShrink: 0,
   },
   identityBody: {
@@ -149,12 +177,12 @@ const styles = StyleSheet.create({
     gap: Spacing.half,
   },
   stats: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: Spacing.two,
   },
   stat: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
     gap: Spacing.half,
   },
   list: {

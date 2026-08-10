@@ -1,23 +1,24 @@
-import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useRouter } from "expo-router";
+import { useState } from "react";
+import { Alert, StyleSheet, View } from "react-native";
 
-import { PlaceRow } from '@/components/place-row';
-import { ChipGroup, type ChipOption } from '@/components/ui/chip-group';
-import { EmptyState } from '@/components/ui/empty-state';
-import { Screen } from '@/components/ui/screen';
-import { SearchField } from '@/components/ui/search-field';
-import { Section } from '@/components/ui/section';
-import { Heading, Text } from '@/components/ui/text';
-import { Spacing } from '@/constants/theme';
-import { places } from '@/data/mock';
-import type { Place } from '@/types';
+import { PlaceRow } from "@/components/place-row";
+import { ChipGroup, type ChipOption } from "@/components/ui/chip-group";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Screen } from "@/components/ui/screen";
+import { SearchField } from "@/components/ui/search-field";
+import { Section } from "@/components/ui/section";
+import { Heading, Text } from "@/components/ui/text";
+import { Spacing } from "@/constants/theme";
+import { usePlaces } from "@/hooks/usePlaces";
+import type { Place } from "@/types";
 
-type Filter = 'all' | 'verified' | 'quiet';
+type Filter = "all" | "verified" | "quiet";
 
 const FILTERS: ChipOption<Filter>[] = [
-  { value: 'all', label: 'All places' },
-  { value: 'verified', label: 'Verified' },
-  { value: 'quiet', label: 'Sensory friendly' },
+  { value: "all", label: "All places" },
+  { value: "verified", label: "Verified" },
+  { value: "quiet", label: "Sensory friendly" },
 ];
 
 /** A place needs at least this quiet score to count as sensory friendly. */
@@ -25,11 +26,11 @@ const QUIET_THRESHOLD = 60;
 
 function matchesFilter(place: Place, filter: Filter): boolean {
   switch (filter) {
-    case 'verified':
+    case "verified":
       return place.verified;
-    case 'quiet':
+    case "quiet":
       return place.quietScore !== null && place.quietScore >= QUIET_THRESHOLD;
-    case 'all':
+    case "all":
       return true;
   }
 }
@@ -42,15 +43,19 @@ function matchesQuery(place: Place, query: string): boolean {
   return (
     place.name.toLowerCase().includes(needle) ||
     place.category.toLowerCase().includes(needle) ||
-    place.features.some((feature) => feature.label.toLowerCase().includes(needle))
+    place.features.some((feature) =>
+      feature.label.toLowerCase().includes(needle),
+    )
   );
 }
 
 export default function ExploreScreen() {
-  const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState<Filter>('all');
+  const router = useRouter();
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<Filter>("all");
+  const placesQuery = usePlaces();
 
-  const visible = places.filter(
+  const visible = (placesQuery.data ?? []).filter(
     (place) => matchesFilter(place, filter) && matchesQuery(place, query),
   );
 
@@ -78,11 +83,22 @@ export default function ExploreScreen() {
         />
       </View>
 
-      <Section title={`${visible.length} ${visible.length === 1 ? 'place' : 'places'}`}>
+      <Section
+        title={`${visible.length} ${visible.length === 1 ? "place" : "places"}`}
+      >
         {visible.length > 0 ? (
           <View style={styles.list}>
             {visible.map((place) => (
-              <PlaceRow key={place.id} place={place} />
+              <PlaceRow
+                key={place.id}
+                place={place}
+                onPress={(selected) => {
+                  Alert.alert(
+                    selected.name,
+                    `${selected.category}\n${selected.features.length} access features`,
+                  );
+                }}
+              />
             ))}
           </View>
         ) : (

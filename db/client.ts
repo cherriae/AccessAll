@@ -28,12 +28,12 @@ class DBClient {
     return this.dispatch(ctx, (c) => this.db.runAsync(c.sql, c.params ?? []));
   }
 
-  async getFirstAsync<T>(sql: string, params: SQLiteBindParams = []) {
+  async getFirstAsync<T>(sql: string, params: SQLiteBindParams = []): Promise<T | null> {
     const ctx: QueryContext = { sql, params, type: 'get' };
     return this.dispatch(ctx, (c) => this.db.getFirstAsync<T>(c.sql, c.params ?? []));
   }
 
-  async getAllAsync<T>(sql: string, params: SQLiteBindParams = []) {
+  async getAllAsync<T>(sql: string, params: SQLiteBindParams = []): Promise<T[]> {
     const ctx: QueryContext = { sql, params, type: 'all' };
     return this.dispatch(ctx, (c) => this.db.getAllAsync<T>(c.sql, c.params ?? []));
   }

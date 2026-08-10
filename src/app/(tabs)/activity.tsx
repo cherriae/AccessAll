@@ -1,13 +1,13 @@
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from "react-native";
 
-import { ActivityRow } from '@/components/activity-row';
-import { EmptyState } from '@/components/ui/empty-state';
-import { Screen } from '@/components/ui/screen';
-import { Section } from '@/components/ui/section';
-import { Heading, Text } from '@/components/ui/text';
-import { Spacing } from '@/constants/theme';
-import { activity } from '@/data/mock';
-import type { ActivityEvent } from '@/types';
+import { ActivityRow } from "@/components/activity-row";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Screen } from "@/components/ui/screen";
+import { Section } from "@/components/ui/section";
+import { Heading, Text } from "@/components/ui/text";
+import { Spacing } from "@/constants/theme";
+import { useActivity } from "@/hooks/useActivity";
+import type { ActivityEvent } from "@/types";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -22,11 +22,14 @@ interface ActivityGroup {
  * Assumes `events` is already newest-first, which is the order the feed is
  * served in; groups keep that relative order.
  */
-function groupByRecency(events: ActivityEvent[], now = Date.now()): ActivityGroup[] {
+function groupByRecency(
+  events: ActivityEvent[],
+  now = Date.now(),
+): ActivityGroup[] {
   const groups: ActivityGroup[] = [
-    { title: 'Today', events: [] },
-    { title: 'This week', events: [] },
-    { title: 'Earlier', events: [] },
+    { title: "Today", events: [] },
+    { title: "This week", events: [] },
+    { title: "Earlier", events: [] },
   ];
 
   for (const event of events) {
@@ -39,7 +42,7 @@ function groupByRecency(events: ActivityEvent[], now = Date.now()): ActivityGrou
 }
 
 export default function ActivityScreen() {
-  const groups = groupByRecency(activity);
+  const groups = groupByRecency(useActivity().data ?? []);
 
   return (
     <Screen>
