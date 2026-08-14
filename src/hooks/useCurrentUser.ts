@@ -1,57 +1,62 @@
 import type { User } from '@/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { db } from '../../db';
 
-type UserRow = {
-    id: string;
-    email: string;
-    firstName: string;
-    lastName: string;
-    affiliation: string;
-    reports: number;
-    reviews: number;
-    votes: number;
-};
+import { useAuthSession } from '@/lib/auth-context';
+import { toUser } from '@/lib/mappers';
+import { requireUserId, supabase, unwrap } from '@/lib/supabase';
 
-function mapUser(row?: UserRow | null): User | null {
-    if (!row) {
-        return null;
-    }
-
-    return {
-        id: row.id,
-        email: row.email,
-        firstName: row.firstName,
-        lastName: row.lastName,
-        affiliation: row.affiliation,
-        stats: {
-            reports: row.reports,
-            reviews: row.reviews,
-            votes: row.votes,
-        },
-    };
-}
-
+/**
+ * The signed-in user, or `null` when nobody is.
+ *
+ * Reads `profile_stats`, a view that counts the user's reports, reviews and
+ * votes live. The old schema kept those as counter columns on `users` that
+ * every mutation had to remember to bump; counting at read time cannot drift.
+ */
 export function useCurrentUser() {
+    const { userId, isReady } = useAuthSession();
+
     return useQuery<User | null>({
-        queryKey: ['currentUser'],
-        queryFn: async () => mapUser(await db.getFirstAsync<UserRow>(
-            'SELECT u.id, u.email, u.firstName, u.lastName, u.affiliation, u.reports, u.reviews, u.votes FROM users u JOIN session s ON s.userId = u.id WHERE s.singleton = 1 LIMIT 1',
-        )),
+        queryKey: ['currentUser', userId],
+        enabled: isReady,
+        queryFn: async () => {
+            if (!userId) {
+                return null;
+            }
+
+            const row = unwrap(
+                await supabase.from('profile_stats').select('*').eq('id', userId).maybeSingle(),
+            );
+
+            return row ? toUser(row) : null;
+        },
     });
 }
 
 export function useUpdateProfile() {
-    const qc = useQueryClient();
+    const queryClient = useQueryClient();
+
     return useMutation({
         mutationFn: async (payload: { firstName: string; lastName: string; affiliation: string }) => {
-            const session = await db.getFirstAsync<{ userId: string }>('SELECT userId FROM session WHERE singleton = 1');
-            if (!session) throw new Error('SIGN_IN_REQUIRED');
-            await db.runAsync(
-                'UPDATE users SET firstName = ?, lastName = ?, affiliation = ? WHERE id = ?',
-                [payload.firstName.trim(), payload.lastName.trim(), payload.affiliation.trim(), session.userId],
+            const userId = await requireUserId();
+
+            unwrap(
+                await supabase
+                    .from('profiles')
+                    .update({
+                        first_name: payload.firstName.trim(),
+                        last_name: payload.lastName.trim(),
+                        affiliation: payload.affiliation.trim(),
+                    })
+                    .eq('id', userId),
             );
-            await qc.invalidateQueries({ queryKey: ['currentUser'] });
+
+            // The display name is generated from these columns, so anything
+            // showing this user as an author is now stale too.
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: ['currentUser'] }),
+                queryClient.invalidateQueries({ queryKey: ['reviews'] }),
+                queryClient.invalidateQueries({ queryKey: ['reportComments'] }),
+            ]);
         },
     });
 }

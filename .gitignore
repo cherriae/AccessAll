@@ -31,7 +31,14 @@ yarn-error.*
 *.pem
 
 # local env files
-.env*.local
+# Even though the app only reads publishable values, keeping .env untracked
+# means a secret added here later cannot be committed by accident.
+.env
+.env.*
+!.env.example
+
+# Claude Code local configuration
+.claude/
 
 # typescript
 *.tsbuildinfo

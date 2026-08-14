@@ -18,7 +18,7 @@ import { Section } from "@/components/ui/section";
 import { Heading, Text } from "@/components/ui/text";
 import { VoteCallout } from "@/components/vote-callout";
 import { Spacing } from "@/constants/theme";
-import { usePolls, useVotePoll } from "@/hooks/usePolls";
+import { useAddPoll, usePolls, useVotePoll } from "@/hooks/usePolls";
 import {
     useSchoolReport,
     useSchoolReportAdd,
@@ -30,6 +30,9 @@ import type { Report, ReportStatus } from "@/types";
 import { REPORT_STATUSES } from "@/types";
 
 type Filter = "all" | ReportStatus;
+
+/** How long a newly proposed vote stays open. */
+const VOTE_WINDOW_DAYS = 14;
 
 const FILTERS: ChipOption<Filter>[] = [
   { value: "all", label: "All" },
@@ -53,6 +56,10 @@ export default function ReportsScreen() {
   const deleteReport = useSchoolReportDelete();
   const pollsQuery = usePolls();
   const votePoll = useVotePoll();
+  const addPoll = useAddPoll();
+  const [voteComposerOpen, setVoteComposerOpen] = useState(false);
+  const [voteTitle, setVoteTitle] = useState("");
+  const [voteLocation, setVoteLocation] = useState("");
 
   const visible =
     filter === "all"
@@ -79,18 +86,29 @@ export default function ReportsScreen() {
       return;
     }
 
-    if (editingReport) {
-      await updateReport.mutateAsync({
-        id: editingReport.id,
-        title: title.trim(),
-        location: location.trim(),
-        status,
-      });
-    } else {
-      await addReport.mutateAsync({
-        title: title.trim(),
-        location: location.trim(),
-      });
+    try {
+      if (editingReport) {
+        await updateReport.mutateAsync({
+          id: editingReport.id,
+          title: title.trim(),
+          location: location.trim(),
+          status,
+        });
+      } else {
+        await addReport.mutateAsync({
+          title: title.trim(),
+          location: location.trim(),
+        });
+      }
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "";
+      Alert.alert(
+        "Could not save this report",
+        code === "AUTH_REQUIRED"
+          ? "Sign in to file a report."
+          : "Please try again.",
+      );
+      return;
     }
 
     setTitle("");
@@ -98,6 +116,41 @@ export default function ReportsScreen() {
     setStatus("open");
     setEditingReport(null);
     setComposerOpen(false);
+  }
+
+  async function submitPoll() {
+    if (!voteTitle.trim() || !voteLocation.trim()) {
+      Alert.alert(
+        "Add a title and location",
+        "Both fields are required to propose a vote.",
+      );
+      return;
+    }
+
+    const closesAt = new Date(
+      Date.now() + VOTE_WINDOW_DAYS * 24 * 60 * 60 * 1000,
+    ).toISOString();
+
+    try {
+      await addPoll.mutateAsync({
+        title: voteTitle.trim(),
+        location: voteLocation.trim(),
+        closesAt,
+      });
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "";
+      Alert.alert(
+        "Could not propose this vote",
+        code === "AUTH_REQUIRED"
+          ? "Sign in to propose a vote."
+          : "Please try again.",
+      );
+      return;
+    }
+
+    setVoteTitle("");
+    setVoteLocation("");
+    setVoteComposerOpen(false);
   }
 
   async function removeReport() {
@@ -129,6 +182,15 @@ export default function ReportsScreen() {
         block
         onPress={openCreateComposer}
         accessibilityHint="Opens a form to describe an accessibility barrier"
+      />
+
+      <Button
+        label="Propose a vote"
+        icon="community"
+        variant="outline"
+        block
+        onPress={() => setVoteComposerOpen(true)}
+        accessibilityHint="Opens a form to put an accessibility change to the community"
       />
 
       {openVotes.length > 0 ? (
@@ -238,6 +300,53 @@ export default function ReportsScreen() {
                 label={editingReport ? "Save changes" : "Save report"}
                 onPress={submitReport}
                 disabled={addReport.isPending}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={voteComposerOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setVoteComposerOpen(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Heading variant="title">Propose a vote</Heading>
+            <Text variant="body" color="textSecondary">
+              {`Put an accessibility change to the community. Voting stays open for ${VOTE_WINDOW_DAYS} days.`}
+            </Text>
+
+            <View style={styles.form}>
+              <TextInput
+                style={styles.input}
+                value={voteTitle}
+                onChangeText={setVoteTitle}
+                placeholder="What should change?"
+                placeholderTextColor="#7A7A7A"
+              />
+              <TextInput
+                style={styles.input}
+                value={voteLocation}
+                onChangeText={setVoteLocation}
+                placeholder="Location"
+                placeholderTextColor="#7A7A7A"
+              />
+            </View>
+
+            <View style={styles.modalActions}>
+              <Pressable
+                onPress={() => setVoteComposerOpen(false)}
+                style={styles.secondaryAction}
+              >
+                <Text variant="label">Cancel</Text>
+              </Pressable>
+              <Button
+                label="Open the vote"
+                onPress={submitPoll}
+                disabled={addPoll.isPending}
               />
             </View>
           </View>

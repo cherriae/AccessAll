@@ -13,8 +13,8 @@ import { useSignIn, useSignUp } from '@/hooks/useAuth';
 export default function AuthScreen() {
   const router = useRouter();
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
-  const [email, setEmail] = useState('alex@example.com');
-  const [password, setPassword] = useState('accessall-demo');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [affiliation, setAffiliation] = useState('');
@@ -37,7 +37,9 @@ export default function AuthScreen() {
         'Could not continue',
         code === 'ACCOUNT_EXISTS' ? 'An account already uses that email.'
           : code === 'NAME_REQUIRED' ? 'Enter your first and last name.'
-          : 'Check your email and password. Passwords must contain at least 8 characters.',
+          : code === 'CONFIRM_EMAIL' ? 'Check your inbox and confirm your email address, then sign in.'
+          : code === 'INVALID_CREDENTIALS' ? 'Check your email and password. Passwords must contain at least 8 characters.'
+          : code || 'Something went wrong. Please try again.',
       );
     }
   }
@@ -46,7 +48,10 @@ export default function AuthScreen() {
     <Screen>
       <View style={styles.intro}>
         <Heading variant="display">{mode === 'signin' ? 'Welcome back' : 'Create an account'}</Heading>
-        <Text color="textSecondary">Your account is stored on this device for this local MVP.</Text>
+        <Text color="textSecondary">
+          Your account works across every device you sign in on, and your contributions are
+          shared with the AccessAll community.
+        </Text>
       </View>
       <Card style={styles.form}>
         <FormField label="Email" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
@@ -66,11 +71,9 @@ export default function AuthScreen() {
           block
         />
       </Card>
-      {mode === 'signin' ? (
-        <Text variant="caption" color="textSecondary" align="center">
-          Demo: alex@example.com / accessall-demo
-        </Text>
-      ) : null}
+      <Text variant="caption" color="textSecondary" align="center">
+        Passwords must contain at least 8 characters.
+      </Text>
     </Screen>
   );
 }

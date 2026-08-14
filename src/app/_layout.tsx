@@ -11,8 +11,9 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { Colors } from "@/constants/theme";
 import { useScheme } from "@/hooks/use-theme";
+import { AuthProvider } from "@/lib/auth-context";
 import { queryClient } from "@/lib/query-client";
-import { setupDB } from "../../db";
+import { supabaseConfigError } from "@/lib/supabase";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -41,8 +42,6 @@ export default function RootLayout() {
    * `useFonts` alone is not enough here: it reports loaded during the prerender.
    */
   const [isMounted, setIsMounted] = useState(false);
-  const [dbReady, setDbReady] = useState(false);
-  const [dbError, setDbError] = useState<string | null>(null);
 
   useEffect(() => {
     // The static web render must stay theme-neutral until hydration completes.
@@ -50,28 +49,10 @@ export default function RootLayout() {
     setIsMounted(true);
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    setupDB()
-      .then(() => {
-        if (!cancelled) {
-          setDbReady(true);
-        }
-      })
-      .catch((error) => {
-        console.error("Database setup failed", error);
-        if (!cancelled) {
-          setDbError(error instanceof Error ? error.message : "Unknown database error");
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const isReady = isMounted && fontsLoaded && (dbReady || Boolean(dbError));
+  // Data now lives in Postgres, so there is no local database to open before
+  // the first render. Screens fetch through React Query and show their own
+  // loading and empty states.
+  const isReady = isMounted && fontsLoaded;
 
   useEffect(() => {
     if (!isReady) {
@@ -89,12 +70,12 @@ export default function RootLayout() {
     return null;
   }
 
-  if (dbError) {
+  if (supabaseConfigError) {
     return (
       <View style={[styles.failure, { backgroundColor: colors.background }]}>
-        <RNText style={[styles.failureTitle, { color: colors.text }]}>AccessAll could not start</RNText>
-        <RNText style={{ color: colors.textSecondary }}>The local database could not be opened. Restart the app or clear its local storage.</RNText>
-        <RNText selectable style={[styles.failureCode, { color: colors.danger }]}>{dbError}</RNText>
+        <RNText style={[styles.failureTitle, { color: colors.text }]}>AccessAll is not configured</RNText>
+        <RNText style={{ color: colors.textSecondary }}>AccessAll needs a working database connection before it can start.</RNText>
+        <RNText selectable style={[styles.failureCode, { color: colors.danger }]}>{supabaseConfigError}</RNText>
       </View>
     );
   }
@@ -121,22 +102,24 @@ export default function RootLayout() {
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
-          <ThemeProvider value={navigationTheme}>
-            <StatusBar style={scheme === "dark" ? "light" : "dark"} />
-            <Stack
-              screenOptions={{
-                // Screens draw their own headers via `<Screen header={...}>`.
-                headerShown: false,
-                contentStyle: { backgroundColor: colors.background },
-              }}
-            >
-              <Stack.Screen name="(tabs)" />
-              <Stack.Screen name="auth" />
-              <Stack.Screen name="settings" />
-              <Stack.Screen name="place/[id]" />
-              <Stack.Screen name="report/[id]" />
-            </Stack>
-          </ThemeProvider>
+          <AuthProvider>
+            <ThemeProvider value={navigationTheme}>
+              <StatusBar style={scheme === "dark" ? "light" : "dark"} />
+              <Stack
+                screenOptions={{
+                  // Screens draw their own headers via `<Screen header={...}>`.
+                  headerShown: false,
+                  contentStyle: { backgroundColor: colors.background },
+                }}
+              >
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen name="auth" />
+                <Stack.Screen name="settings" />
+                <Stack.Screen name="place/[id]" />
+                <Stack.Screen name="report/[id]" />
+              </Stack>
+            </ThemeProvider>
+          </AuthProvider>
         </QueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

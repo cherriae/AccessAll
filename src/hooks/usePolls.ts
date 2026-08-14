@@ -1,86 +1,82 @@
 import type { Poll } from '@/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { db } from '../../db';
 
-type PollRow = {
-    id: string;
-    title: string;
-    location: string;
-    closesAt: string;
-    hasVoted: number;
-};
+import { useAuthSession } from '@/lib/auth-context';
+import { toPoll } from '@/lib/mappers';
+import { requireUserId, supabase, unwrap, unwrapOne } from '@/lib/supabase';
 
+/**
+ * Open proposals, with `hasVoted` resolved for the current user.
+ *
+ * `poll_feed` computes that flag per caller from `auth.uid()`, which is why the
+ * session id is part of the query key: two accounts on the same device must not
+ * share a cached answer to "have I voted?".
+ */
 export function usePolls() {
+    const { userId } = useAuthSession();
+
     return useQuery<Poll[]>({
-        queryKey: ['polls'],
+        queryKey: ['polls', userId],
         queryFn: async () => {
-            const rows = await db.getAllAsync<PollRow>(
-                'SELECT id, title, location, closesAt, hasVoted FROM polls ORDER BY closesAt ASC',
+            const rows = unwrap(
+                await supabase.from('poll_feed').select('*').order('closes_at', { ascending: true }),
             );
 
-            return rows.map((row) => ({
-                id: row.id,
-                title: row.title,
-                location: row.location,
-                closesAt: row.closesAt,
-                hasVoted: row.hasVoted === 1,
-            }));
+            return rows.map(toPoll);
         },
     });
 }
 
 export function useVotePoll() {
-    const qc = useQueryClient();
-    return useMutation({
-        mutationFn: async (id: string) => {
-            const poll = await db.getFirstAsync<PollRow>(
-                'SELECT id, title, location, closesAt, hasVoted FROM polls WHERE id = ? LIMIT 1',
-                [id],
-            );
+    const queryClient = useQueryClient();
 
-            if (!poll || poll.hasVoted) {
-                return null;
+    return useMutation({
+        mutationFn: async (pollId: string) => {
+            const userId = await requireUserId();
+
+            const result = await supabase
+                .from('poll_votes')
+                .insert({ poll_id: pollId, user_id: userId });
+
+            // A duplicate means the vote is already recorded — the button was
+            // pressed twice, not that anything went wrong.
+            if (result.error && result.error.code !== '23505') {
+                throw new Error(result.error.message);
             }
 
-            await db.withTransactionAsync(async () => {
-                await db.runAsync('UPDATE polls SET hasVoted = 1 WHERE id = ?', [id]);
-                await db.runAsync('UPDATE users SET votes = votes + 1 WHERE id = (SELECT userId FROM session WHERE singleton = 1)');
-                await db.runAsync(
-                    'INSERT INTO activity (id, kind, title, subtitle, occurredAt) VALUES (?, ?, ?, ?, ?)',
-                    [`a_${Date.now()}`, 'vote', `You voted on ${poll.title}`, poll.location, new Date().toISOString()],
-                );
-            });
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: ['polls'] }),
+                queryClient.invalidateQueries({ queryKey: ['currentUser'] }),
+                queryClient.invalidateQueries({ queryKey: ['activity'] }),
+            ]);
 
-            qc.invalidateQueries({ queryKey: ['polls'] });
-            qc.invalidateQueries({ queryKey: ['currentUser'] });
-            qc.invalidateQueries({ queryKey: ['activity'] });
-            return id;
+            return pollId;
         },
     });
 }
 
 export function useAddPoll() {
-    const qc = useQueryClient();
-    return useMutation({
-        mutationFn: async (payload: Omit<Poll, 'id' | 'hasVoted'>) => {
-            const newItem: Poll = { id: `p_${Date.now()}`, hasVoted: false, ...payload } as Poll;
-            await db.runAsync(
-                'INSERT INTO polls (id, title, location, closesAt, hasVoted) VALUES (?, ?, ?, ?, ?)',
-                [newItem.id, newItem.title, newItem.location, newItem.closesAt, 0],
-            );
-            qc.invalidateQueries({ queryKey: ['polls'] });
-            return newItem;
-        },
-    });
-}
+    const queryClient = useQueryClient();
 
-export function useDeletePoll() {
-    const qc = useQueryClient();
     return useMutation({
-        mutationFn: async (id: string) => {
-            await db.runAsync('DELETE FROM polls WHERE id = ?', [id]);
-            qc.invalidateQueries({ queryKey: ['polls'] });
-            return id;
+        mutationFn: async (payload: { title: string; location: string; closesAt: string }) => {
+            const userId = await requireUserId();
+
+            const inserted = await supabase
+                .from('polls')
+                .insert({
+                    title: payload.title.trim(),
+                    location: payload.location.trim(),
+                    closes_at: payload.closesAt,
+                    created_by: userId,
+                })
+                .select('id')
+                .single();
+
+            const row = unwrapOne(inserted);
+
+            await queryClient.invalidateQueries({ queryKey: ['polls'] });
+            return row.id;
         },
     });
 }
