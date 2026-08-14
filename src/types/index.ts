@@ -68,6 +68,14 @@ export interface Report {
   createdAt: Timestamp;
   /** Community upvotes indicating how many people are affected. */
   upvotes: number;
+  /**
+   * Who filed it, or `null` if that account has since been deleted.
+   *
+   * Only the author may change a report's status — the database enforces this,
+   * so screens must check it before offering the control rather than letting
+   * the update silently affect no rows.
+   */
+  createdBy: string | null;
 }
 
 /** An open community decision, e.g. approving a new ramp. */
@@ -83,6 +91,19 @@ export interface Poll {
 /* -------------------------------------------------------------------------- */
 /* Explore                                                                    */
 /* -------------------------------------------------------------------------- */
+
+/**
+ * The geographic rectangle currently visible on the map.
+ *
+ * Drives `places_in_bounds`, so only the places someone can actually see are
+ * fetched rather than every place in the database.
+ */
+export interface MapBounds {
+  minLatitude: number;
+  minLongitude: number;
+  maxLatitude: number;
+  maxLongitude: number;
+}
 
 /** A specific accessibility affordance a place offers. */
 export interface AccessFeature {
@@ -103,8 +124,6 @@ export interface Place {
    * `null` when there is not enough data.
    */
   quietScore: number | null;
-  /** True when the place has passed accessibility verification. */
-  verified: boolean;
   latitude: number;
   longitude: number;
   features: AccessFeature[];
@@ -135,7 +154,7 @@ export interface Review {
 /* Activity                                                                   */
 /* -------------------------------------------------------------------------- */
 
-export type ActivityKind = 'report' | 'review' | 'vote' | 'verification';
+export type ActivityKind = 'report' | 'review' | 'vote';
 
 /** A single entry in the user's activity feed. */
 export interface ActivityEvent {

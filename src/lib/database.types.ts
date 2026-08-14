@@ -54,7 +54,6 @@ export type PlaceRow = {
     community_guide: string;
     guide_author_id: string | null;
     guide_updated_at: string | null;
-    verified: boolean;
     latitude: number;
     longitude: number;
     features: AccessFeature[];
@@ -67,7 +66,7 @@ export type PlaceRow = {
 };
 
 /** `location` is a generated geography column and `rating`/`review_count`/`quiet_score` are trigger-owned. */
-type PlaceWritable = Omit<PlaceRow, 'id' | 'rating' | 'review_count' | 'quiet_score' | 'created_at' | 'verified'>;
+type PlaceWritable = Omit<PlaceRow, 'id' | 'rating' | 'review_count' | 'quiet_score' | 'created_at'>;
 
 export type ReviewRow = {
     id: string;
@@ -125,7 +124,7 @@ export type PollVoteRow = {
 export type ActivityRow = {
     id: string;
     user_id: string;
-    kind: 'report' | 'review' | 'vote' | 'verification';
+    kind: 'report' | 'review' | 'vote';
     title: string;
     subtitle: string;
     occurred_at: string;

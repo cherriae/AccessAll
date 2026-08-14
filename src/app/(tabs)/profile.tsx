@@ -38,13 +38,6 @@ const SETTINGS: SettingsItem[] = [
     accent: "community",
   },
   {
-    id: "verified",
-    title: "Verified places",
-    subtitle: "How verification works",
-    icon: "verified",
-    accent: "verified",
-  },
-  {
     id: "help",
     title: "Help and feedback",
     subtitle: "Get support or suggest an improvement",

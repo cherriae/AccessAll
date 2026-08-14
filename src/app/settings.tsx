@@ -46,9 +46,9 @@ export default function SettingsScreen() {
           <SettingSwitch label="Open vote reminders" value={settings?.voteRemindersEnabled ?? false} onChange={(value) => setPreference('voteRemindersEnabled', value)} />
         </Card>
       </Section>
-      <Section title="About verification">
+      <Section title="About accessibility information">
         <Card style={styles.form}>
-          <Text>Verified places have accessibility information reviewed for consistency. Verification is not a guarantee that every person’s access needs will be met.</Text>
+          <Text>Accessibility details on AccessAll are contributed by the community, not audited by us. They describe what people found, which may have changed since.</Text>
           <Text color="textSecondary">Always check recent community reviews before visiting.</Text>
         </Card>
       </Section>

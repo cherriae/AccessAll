@@ -57,7 +57,6 @@ export function toPlace(row: PlaceFeedRow): Place {
         rating: toNumber(row.rating),
         reviewCount: row.review_count,
         quietScore: row.quiet_score,
-        verified: row.verified,
         latitude: row.latitude,
         longitude: row.longitude,
         features: Array.isArray(row.features) ? row.features : [],
@@ -91,6 +90,7 @@ export function toReport(row: ReportRow): Report {
         status: row.status,
         createdAt: row.created_at,
         upvotes: row.upvotes,
+        createdBy: row.created_by,
     };
 }
 

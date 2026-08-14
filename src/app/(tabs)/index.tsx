@@ -7,7 +7,6 @@ import { FeatureCard } from "@/components/feature-card";
 import { Screen } from "@/components/ui/screen";
 import { Section } from "@/components/ui/section";
 import { Heading } from "@/components/ui/text";
-import { VerifiedCallout } from "@/components/verified-callout";
 import { VoteCallout } from "@/components/vote-callout";
 import { Spacing } from "@/constants/theme";
 import { useActivity } from "@/hooks/useActivity";
@@ -55,8 +54,6 @@ export default function HomeScreen() {
           />
         ))}
       </View>
-
-      <VerifiedCallout />
 
       <Section
         title="Recent activity"

@@ -48,7 +48,7 @@ export function useMapSearch() {
           id: `geo_${p.osm_type ?? 'result'}_${p.osm_id ?? index}`,
           name: resultName(feature),
           category: [p.type ?? p.osm_value, p.city, p.state, p.country].filter(Boolean).join(' · ') || 'OpenStreetMap result',
-          rating: null, reviewCount: 0, quietScore: null, verified: false,
+          rating: null, reviewCount: 0, quietScore: null,
           latitude, longitude, features: [],
           address: address || undefined,
           sourceLabel: 'OpenStreetMap location',

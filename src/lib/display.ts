@@ -26,5 +26,4 @@ export const ACTIVITY_DISPLAY: Record<ActivityKind, Omit<Display, 'label'>> = {
   report: { icon: 'campus', accent: 'campus' },
   review: { icon: 'review', accent: 'explore' },
   vote: { icon: 'community', accent: 'community' },
-  verification: { icon: 'verified', accent: 'verified' },
 };

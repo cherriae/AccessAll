@@ -5,7 +5,7 @@ import { useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Radius } from '@/constants/theme';
-import type { Place } from '@/types';
+import type { MapBounds, Place } from '@/types';
 
 const MAP_STYLE: StyleSpecification = {
   version: 8,
@@ -26,12 +26,20 @@ export interface PlaceMapProps {
   places: Place[];
   selectedId?: string;
   onSelect: (place: Place) => void;
+  /** Fires once the map settles, so callers can fetch just what is visible. */
+  onBoundsChange?: (bounds: MapBounds) => void;
 }
 
-export function PlaceMap({ places, selectedId, onSelect }: PlaceMapProps) {
+export function PlaceMap({ places, selectedId, onSelect, onBoundsChange }: PlaceMapProps) {
   const container = useRef<View>(null);
   const map = useRef<MapLibreMap | null>(null);
   const markers = useRef<Marker[]>([]);
+
+  // Held in a ref so the map is created exactly once. Listing the callback as a
+  // dependency of the setup effect below would tear down and rebuild the whole
+  // map every time the parent re-renders with a new closure.
+  const boundsCallback = useRef(onBoundsChange);
+  useEffect(() => { boundsCallback.current = onBoundsChange; }, [onBoundsChange]);
 
   useEffect(() => {
     if (!container.current || map.current) return;
@@ -42,6 +50,22 @@ export function PlaceMap({ places, selectedId, onSelect }: PlaceMapProps) {
       zoom: 11,
     });
     instance.addControl(new NavigationControl(), 'top-right');
+
+    const reportBounds = () => {
+      const bounds = instance.getBounds();
+      boundsCallback.current?.({
+        minLatitude: bounds.getSouth(),
+        minLongitude: bounds.getWest(),
+        maxLatitude: bounds.getNorth(),
+        maxLongitude: bounds.getEast(),
+      });
+    };
+
+    // `load` seeds the first query; `moveend` only fires once panning settles,
+    // so this does not fire per frame while the user drags.
+    instance.on('load', reportBounds);
+    instance.on('moveend', reportBounds);
+
     map.current = instance;
     return () => { map.current?.remove(); map.current = null; };
   }, []);

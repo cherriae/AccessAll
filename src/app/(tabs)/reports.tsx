@@ -19,14 +19,9 @@ import { Heading, Text } from "@/components/ui/text";
 import { VoteCallout } from "@/components/vote-callout";
 import { Spacing } from "@/constants/theme";
 import { useAddPoll, usePolls, useVotePoll } from "@/hooks/usePolls";
-import {
-    useSchoolReport,
-    useSchoolReportAdd,
-    useSchoolReportDelete,
-    useSchoolReportUpdate,
-} from "@/hooks/useSchoolReport";
+import { useSchoolReport, useSchoolReportAdd } from "@/hooks/useSchoolReport";
 import { REPORT_STATUS_DISPLAY } from "@/lib/display";
-import type { Report, ReportStatus } from "@/types";
+import type { ReportStatus } from "@/types";
 import { REPORT_STATUSES } from "@/types";
 
 type Filter = "all" | ReportStatus;
@@ -46,14 +41,10 @@ export default function ReportsScreen() {
   const router = useRouter();
   const [filter, setFilter] = useState<Filter>("all");
   const [composerOpen, setComposerOpen] = useState(false);
-  const [editingReport, setEditingReport] = useState<Report | null>(null);
   const [title, setTitle] = useState("");
   const [location, setLocation] = useState("");
-  const [status, setStatus] = useState<ReportStatus>("open");
   const reportsQuery = useSchoolReport();
   const addReport = useSchoolReportAdd();
-  const updateReport = useSchoolReportUpdate();
-  const deleteReport = useSchoolReportDelete();
   const pollsQuery = usePolls();
   const votePoll = useVotePoll();
   const addPoll = useAddPoll();
@@ -67,13 +58,9 @@ export default function ReportsScreen() {
       : (reportsQuery.data ?? []).filter((r) => r.status === filter);
   const openVotes = (pollsQuery.data ?? []).filter((poll) => !poll.hasVoted);
 
-  const modalTitle = editingReport ? "Edit report" : "New report";
-
   function openCreateComposer() {
-    setEditingReport(null);
     setTitle("");
     setLocation("");
-    setStatus("open");
     setComposerOpen(true);
   }
 
@@ -87,19 +74,10 @@ export default function ReportsScreen() {
     }
 
     try {
-      if (editingReport) {
-        await updateReport.mutateAsync({
-          id: editingReport.id,
-          title: title.trim(),
-          location: location.trim(),
-          status,
-        });
-      } else {
-        await addReport.mutateAsync({
-          title: title.trim(),
-          location: location.trim(),
-        });
-      }
+      await addReport.mutateAsync({
+        title: title.trim(),
+        location: location.trim(),
+      });
     } catch (error) {
       const code = error instanceof Error ? error.message : "";
       Alert.alert(
@@ -113,8 +91,6 @@ export default function ReportsScreen() {
 
     setTitle("");
     setLocation("");
-    setStatus("open");
-    setEditingReport(null);
     setComposerOpen(false);
   }
 
@@ -151,19 +127,6 @@ export default function ReportsScreen() {
     setVoteTitle("");
     setVoteLocation("");
     setVoteComposerOpen(false);
-  }
-
-  async function removeReport() {
-    if (!editingReport) {
-      return;
-    }
-
-    await deleteReport.mutateAsync(editingReport.id);
-    setTitle("");
-    setLocation("");
-    setStatus("open");
-    setEditingReport(null);
-    setComposerOpen(false);
   }
 
   return (
@@ -244,11 +207,9 @@ export default function ReportsScreen() {
       >
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
-            <Heading variant="title">{modalTitle}</Heading>
+            <Heading variant="title">New report</Heading>
             <Text variant="body" color="textSecondary">
-              {editingReport
-                ? "Update the report details or remove it from the feed."
-                : "Share the barrier you found so it shows up in the report feed."}
+              Share the barrier you found so it shows up in the report feed.
             </Text>
 
             <View style={styles.form}>
@@ -266,30 +227,9 @@ export default function ReportsScreen() {
                 placeholder="Location"
                 placeholderTextColor="#7A7A7A"
               />
-
-              <ChipGroup
-                label="Report status"
-                options={REPORT_STATUSES.map((value) => ({
-                  value,
-                  label: REPORT_STATUS_DISPLAY[value].label,
-                }))}
-                value={status}
-                onChange={setStatus}
-              />
             </View>
 
             <View style={styles.modalActions}>
-              {editingReport ? (
-                <Pressable
-                  onPress={removeReport}
-                  style={styles.destructiveAction}
-                  disabled={deleteReport.isPending}
-                >
-                  <Text variant="label" color="danger">
-                    Delete
-                  </Text>
-                </Pressable>
-              ) : null}
               <Pressable
                 onPress={() => setComposerOpen(false)}
                 style={styles.secondaryAction}
@@ -297,7 +237,7 @@ export default function ReportsScreen() {
                 <Text variant="label">Cancel</Text>
               </Pressable>
               <Button
-                label={editingReport ? "Save changes" : "Save report"}
+                label="Save report"
                 onPress={submitReport}
                 disabled={addReport.isPending}
               />
@@ -391,10 +331,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "flex-end",
     gap: Spacing.two,
-  },
-  destructiveAction: {
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
   },
   secondaryAction: {
     paddingHorizontal: Spacing.three,

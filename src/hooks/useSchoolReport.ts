@@ -93,23 +93,6 @@ export function useSchoolReportUpdate() {
     });
 }
 
-export function useSchoolReportDelete() {
-    const queryClient = useQueryClient();
-
-    return useMutation({
-        mutationFn: async (id: string) => {
-            unwrap(await supabase.from('reports').delete().eq('id', id));
-
-            await Promise.all([
-                queryClient.invalidateQueries({ queryKey: ['reports'] }),
-                queryClient.invalidateQueries({ queryKey: ['currentUser'] }),
-            ]);
-
-            return id;
-        },
-    });
-}
-
 export function useReportComments(reportId?: string) {
     return useQuery<ReportComment[]>({
         queryKey: ['reportComments', reportId],

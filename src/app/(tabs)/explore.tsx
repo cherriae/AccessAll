@@ -12,16 +12,15 @@ import { SearchField } from "@/components/ui/search-field";
 import { Section } from "@/components/ui/section";
 import { Heading, Text } from "@/components/ui/text";
 import { Spacing } from "@/constants/theme";
-import { usePlaces } from "@/hooks/usePlaces";
+import { usePlacesInBounds } from "@/hooks/usePlaces";
 import { useMapSearch } from "@/hooks/useMapSearch";
 import { savePlaceDraft } from "@/lib/place-drafts";
-import type { Place } from "@/types";
+import type { MapBounds, Place } from "@/types";
 
-type Filter = "all" | "verified" | "quiet";
+type Filter = "all" | "quiet";
 
 const FILTERS: ChipOption<Filter>[] = [
   { value: "all", label: "All places" },
-  { value: "verified", label: "Verified" },
   { value: "quiet", label: "Sensory friendly" },
 ];
 
@@ -31,8 +30,6 @@ const SEARCH_RESULT_LIMIT = 20;
 
 function matchesFilter(place: Place, filter: Filter): boolean {
   switch (filter) {
-    case "verified":
-      return place.verified;
     case "quiet":
       return place.quietScore !== null && place.quietScore >= QUIET_THRESHOLD;
     case "all":
@@ -61,7 +58,11 @@ export default function ExploreScreen() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [selectedId, setSelectedId] = useState<string>();
-  const placesQuery = usePlaces();
+  // Only the visible rectangle is fetched, via the GiST-indexed
+  // `places_in_bounds`. Places outside it are still reachable through the
+  // worldwide map search below.
+  const [bounds, setBounds] = useState<MapBounds>();
+  const placesQuery = usePlacesInBounds(bounds);
   const mapSearch = useMapSearch();
   const searchWorldwide = mapSearch.mutateAsync;
   const [mapResults, setMapResults] = useState<Place[]>([]);
@@ -117,6 +118,7 @@ export default function ExploreScreen() {
         places={displayed}
         selectedId={selectedId}
         onSelect={openPlace}
+        onBoundsChange={setBounds}
       />
 
       <View style={styles.controls}>

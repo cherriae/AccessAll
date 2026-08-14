@@ -64,7 +64,6 @@ export default function PlaceDetailScreen() {
       rating: null,
       reviewCount: 0,
       quietScore: null,
-      verified: false,
       latitude: place!.latitude,
       longitude: place!.longitude,
       address: place!.address,

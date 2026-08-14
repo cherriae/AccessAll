@@ -1,10 +1,15 @@
-import { Camera, Map, Marker, type CameraRef, type StyleSpecification } from '@maplibre/maplibre-react-native';
+import { Camera, Map, Marker, type CameraRef, type MapRef, type StyleSpecification } from '@maplibre/maplibre-react-native';
 import { useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/ui/text';
 import { Radius } from '@/constants/theme';
-import type { Place } from '@/types';
+import type { MapBounds, Place } from '@/types';
+
+/** MapLibre reports bounds as `[west, south, east, north]`. */
+function toMapBounds([west, south, east, north]: [number, number, number, number]): MapBounds {
+  return { minLatitude: south, minLongitude: west, maxLatitude: north, maxLongitude: east };
+}
 
 const MAP_STYLE: StyleSpecification = {
   version: 8,
@@ -25,10 +30,13 @@ export interface PlaceMapProps {
   places: Place[];
   selectedId?: string;
   onSelect: (place: Place) => void;
+  /** Fires once the map settles, so callers can fetch just what is visible. */
+  onBoundsChange?: (bounds: MapBounds) => void;
 }
 
-export function PlaceMap({ places, selectedId, onSelect }: PlaceMapProps) {
+export function PlaceMap({ places, selectedId, onSelect, onBoundsChange }: PlaceMapProps) {
   const camera = useRef<CameraRef>(null);
+  const map = useRef<MapRef>(null);
   const selected = places.find((place) => place.id === selectedId) ?? places[0];
 
   useEffect(() => {
@@ -39,7 +47,18 @@ export function PlaceMap({ places, selectedId, onSelect }: PlaceMapProps) {
 
   return (
     <View style={styles.frame}>
-      <Map mapStyle={MAP_STYLE} style={styles.map} logo>
+      <Map
+        ref={map}
+        mapStyle={MAP_STYLE}
+        style={styles.map}
+        logo
+        onRegionDidChange={(event) => onBoundsChange?.(toMapBounds(event.nativeEvent.bounds))}
+        // `onRegionDidChange` only fires once the user moves the map, so the
+        // first viewport has to be read directly or nothing loads until they do.
+        onDidFinishLoadingMap={() => {
+          map.current?.getBounds().then((bounds) => onBoundsChange?.(toMapBounds(bounds)));
+        }}
+      >
         <Camera
           ref={camera}
           initialViewState={{

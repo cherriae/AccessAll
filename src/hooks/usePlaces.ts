@@ -1,4 +1,4 @@
-import type { Place } from '@/types';
+import type { MapBounds, Place } from '@/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { toPlace } from '@/lib/mappers';
@@ -40,6 +40,61 @@ export function useNearbyPlaces(
                     lat: center!.latitude,
                     lng: center!.longitude,
                     radius_meters: radiusMeters,
+                }),
+            );
+
+            return rows.map(toPlace);
+        },
+    });
+}
+
+/**
+ * Snapping bounds to a grid before querying.
+ *
+ * `moveend` fires with slightly different coordinates after every pan, and each
+ * distinct value would be a fresh cache entry and a fresh request. Rounding
+ * outward to ~100m makes small drags reuse the previous result, and never
+ * shrinks the box below what the user can see.
+ */
+const BOUNDS_PRECISION = 1000;
+
+function snapOutward(bounds: MapBounds): MapBounds {
+    return {
+        minLatitude: Math.floor(bounds.minLatitude * BOUNDS_PRECISION) / BOUNDS_PRECISION,
+        minLongitude: Math.floor(bounds.minLongitude * BOUNDS_PRECISION) / BOUNDS_PRECISION,
+        maxLatitude: Math.ceil(bounds.maxLatitude * BOUNDS_PRECISION) / BOUNDS_PRECISION,
+        maxLongitude: Math.ceil(bounds.maxLongitude * BOUNDS_PRECISION) / BOUNDS_PRECISION,
+    };
+}
+
+/**
+ * The places inside the map's current viewport.
+ *
+ * Runs `places_in_bounds`, which filters on the GiST-indexed geography column,
+ * so the cost tracks what is on screen rather than how many places exist.
+ */
+export function usePlacesInBounds(bounds?: MapBounds) {
+    const snapped = bounds ? snapOutward(bounds) : undefined;
+
+    return useQuery<Place[]>({
+        queryKey: [
+            'places',
+            'bounds',
+            snapped?.minLatitude,
+            snapped?.minLongitude,
+            snapped?.maxLatitude,
+            snapped?.maxLongitude,
+        ],
+        enabled: Boolean(snapped),
+        // Panning back to somewhere just visited should not re-query.
+        placeholderData: (previous) => previous,
+        queryFn: async () => {
+            const rows = unwrap(
+                await supabase.rpc('places_in_bounds', {
+                    min_lat: snapped!.minLatitude,
+                    min_lng: snapped!.minLongitude,
+                    max_lat: snapped!.maxLatitude,
+                    max_lng: snapped!.maxLongitude,
                 }),
             );
 

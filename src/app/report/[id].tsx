@@ -31,6 +31,7 @@ export default function ReportDetailScreen() {
 
   if (!report) return <Screen><EmptyState icon="reports" title="Report not found" message="This report may have been removed." /></Screen>;
   const status = REPORT_STATUS_DISPLAY[report.status];
+  const isAuthor = Boolean(user && report.createdBy === user.id);
 
   async function requireUser(action: () => Promise<unknown>) {
     if (!user) { router.push('/auth' as never); return; }
@@ -49,12 +50,24 @@ export default function ReportDetailScreen() {
         <Button label={user ? 'Mark me affected' : 'Sign in to upvote'} icon="upvote" onPress={() => requireUser(() => toggleUpvote.mutateAsync(report.id))} />
       </Card>
       <Section title="Progress">
-        <ChipGroup
-          label="Report status"
-          options={REPORT_STATUSES.map((value) => ({ value, label: REPORT_STATUS_DISPLAY[value].label }))}
-          value={report.status}
-          onChange={(next) => requireUser(() => update.mutateAsync({ id: report.id, title: report.title, location: report.location, status: next }))}
-        />
+        {/*
+          Only the author may change the status — `reports_update_own` enforces
+          it in the database. Showing the control to everyone meant a non-author
+          could tap it, have the update match zero rows, and watch the value
+          silently snap back with no explanation.
+        */}
+        {isAuthor ? (
+          <ChipGroup
+            label="Report status"
+            options={REPORT_STATUSES.map((value) => ({ value, label: REPORT_STATUS_DISPLAY[value].label }))}
+            value={report.status}
+            onChange={(next) => requireUser(() => update.mutateAsync({ id: report.id, title: report.title, location: report.location, status: next }))}
+          />
+        ) : (
+          <Text color="textSecondary">
+            {`Currently ${status.label.toLowerCase()}. Only the person who filed this report can change its status.`}
+          </Text>
+        )}
       </Section>
       <Section title="Discussion">
         <Card style={styles.form}>
