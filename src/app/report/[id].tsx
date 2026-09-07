@@ -1,7 +1,8 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 
+import { PlaceMap } from '@/components/place-map';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -16,7 +17,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useAddReportComment, useReport, useReportComments, useSchoolReportUpdate, useToggleReportUpvote } from '@/hooks/useSchoolReport';
 import { REPORT_STATUS_DISPLAY } from '@/lib/display';
 import { formatRelativeTime } from '@/lib/format';
-import { REPORT_STATUSES } from '@/types';
+import { REPORT_STATUSES, type Place } from '@/types';
 
 export default function ReportDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -28,6 +29,28 @@ export default function ReportDetailScreen() {
   const toggleUpvote = useToggleReportUpvote();
   const addComment = useAddReportComment();
   const [comment, setComment] = useState('');
+
+  // The map takes a list of places, and a report with a confirmed location is
+  // exactly one point on it. Memoised because `PlaceMap` rebuilds its markers
+  // whenever this array changes identity, which a fresh literal does on every
+  // keystroke in the comment box.
+  const pin = useMemo<Place[]>(() => {
+    if (!report || report.latitude === null || report.longitude === null) return [];
+    return [{
+      id: report.id,
+      name: report.location,
+      category: 'Reported barrier',
+      rating: null,
+      reviewCount: 0,
+      quietScore: null,
+      latitude: report.latitude,
+      longitude: report.longitude,
+      features: [],
+    }];
+  }, [report]);
+
+  // The pin is the report you are already reading, so selecting it does nothing.
+  const ignoreSelect = useCallback(() => {}, []);
 
   if (!report) return <Screen><EmptyState icon="reports" title="Report not found" message="This report may have been removed." /></Screen>;
   const status = REPORT_STATUS_DISPLAY[report.status];
@@ -45,6 +68,16 @@ export default function ReportDetailScreen() {
         <Text color="textSecondary">{report.location}</Text>
         <Badge label={status.label} accent={status.accent} icon={status.icon} />
       </View>
+      <Section title="Location">
+        {pin.length > 0 ? (
+          <PlaceMap places={pin} selectedId={report.id} onSelect={ignoreSelect} />
+        ) : (
+          <Text color="textSecondary">
+            This report was filed before locations were confirmed against the map, so
+            &ldquo;{report.location}&rdquo; is unverified text and cannot be shown as a pin.
+          </Text>
+        )}
+      </Section>
       <Card style={styles.actions}>
         <Text variant="heading">{report.upvotes} people affected</Text>
         <Button label={user ? 'Mark me affected' : 'Sign in to upvote'} icon="upvote" onPress={() => requireUser(() => toggleUpvote.mutateAsync(report.id))} />

@@ -1,4 +1,4 @@
-import type { Poll } from '@/types';
+import type { LocationSelection, Poll } from '@/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useAuthSession } from '@/lib/auth-context';
@@ -59,14 +59,16 @@ export function useAddPoll() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async (payload: { title: string; location: string; closesAt: string }) => {
+        mutationFn: async (payload: { title: string; location: LocationSelection; closesAt: string }) => {
             const userId = await requireUserId();
 
             const inserted = await supabase
                 .from('polls')
                 .insert({
                     title: payload.title.trim(),
-                    location: payload.location.trim(),
+                    location: payload.location.name.trim(),
+                    latitude: payload.location.latitude,
+                    longitude: payload.location.longitude,
                     closes_at: payload.closesAt,
                     created_by: userId,
                 })

@@ -79,10 +79,14 @@ export type ReviewRow = {
     updated_at: string;
 };
 
+/** `location_point` is a generated geography column, so it is not listed here. */
 export type ReportRow = {
     id: string;
     title: string;
     location: string;
+    /** Null on rows filed before the location picker; see `Report` in `@/types`. */
+    latitude: number | null;
+    longitude: number | null;
     status: 'open' | 'in-progress' | 'resolved';
     created_by: string | null;
     created_at: string;
@@ -104,10 +108,13 @@ export type ReportUpvoteRow = {
     created_at: string;
 };
 
+/** `location_point` is a generated geography column, so it is not listed here. */
 export type PollRow = {
     id: string;
     title: string;
     location: string;
+    latitude: number | null;
+    longitude: number | null;
     closes_at: string;
     created_by: string | null;
     created_at: string;
@@ -157,6 +164,8 @@ export type PollFeedRow = {
     id: string;
     title: string;
     location: string;
+    latitude: number | null;
+    longitude: number | null;
     closes_at: string;
     vote_count: number;
     has_voted: boolean;
@@ -197,7 +206,7 @@ export type Database = {
             reports: Table<
                 ReportRow,
                 Insertable<Omit<ReportRow, 'id' | 'created_at' | 'upvotes'>, 'title' | 'created_by'>,
-                Partial<Pick<ReportRow, 'title' | 'location' | 'status'>>
+                Partial<Pick<ReportRow, 'title' | 'location' | 'latitude' | 'longitude' | 'status'>>
             >;
             report_comments: Table<
                 ReportCommentRow,

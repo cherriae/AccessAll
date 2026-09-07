@@ -1,4 +1,4 @@
-import type { Report, ReportComment } from '@/types';
+import type { LocationSelection, Report, ReportComment } from '@/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { toReport, toReportComment } from '@/lib/mappers';
@@ -35,14 +35,18 @@ export function useSchoolReportAdd() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async (payload: { title: string; location: string }) => {
+        mutationFn: async (payload: { title: string; location: LocationSelection }) => {
             const userId = await requireUserId();
 
             const inserted = await supabase
                 .from('reports')
                 .insert({
                     title: payload.title.trim(),
-                    location: payload.location.trim(),
+                    // The picker only yields places the geocoder returned, so
+                    // the name and the coordinates always describe each other.
+                    location: payload.location.name.trim(),
+                    latitude: payload.location.latitude,
+                    longitude: payload.location.longitude,
                     status: 'open',
                     created_by: userId,
                 })

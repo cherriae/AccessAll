@@ -58,12 +58,35 @@ export interface Feature {
 export const REPORT_STATUSES = ['open', 'in-progress', 'resolved'] as const;
 export type ReportStatus = (typeof REPORT_STATUSES)[number];
 
+/**
+ * A place confirmed against the geocoder rather than typed freehand.
+ *
+ * Reports and polls carry one of these so a barrier is anchored to a real
+ * coordinate: without it "main entrance" and "Main St entrance" are two
+ * unrelated strings, and neither can be drawn on the map.
+ */
+export interface LocationSelection {
+  /** Display name, e.g. "Brooklyn Technical High School". */
+  name: string;
+  /** Street address or area, when the geocoder knows one. */
+  address?: string;
+  latitude: number;
+  longitude: number;
+}
+
 /** An accessibility barrier someone has reported at a location. */
 export interface Report {
   id: string;
   title: string;
   /** Human-readable place name, e.g. "Lincoln High School". */
   location: string;
+  /**
+   * Coordinates of the confirmed place. `null` on reports filed before the
+   * location picker existed, whose `location` is unverified free text — those
+   * cannot be placed on a map and must not be guessed at.
+   */
+  latitude: number | null;
+  longitude: number | null;
   status: ReportStatus;
   createdAt: Timestamp;
   /** Community upvotes indicating how many people are affected. */
@@ -83,6 +106,9 @@ export interface Poll {
   id: string;
   title: string;
   location: string;
+  /** As on `Report`: `null` for proposals that predate the location picker. */
+  latitude: number | null;
+  longitude: number | null;
   closesAt: Timestamp;
   /** Whether the signed-in user has already voted. */
   hasVoted: boolean;

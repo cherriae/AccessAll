@@ -87,6 +87,8 @@ export function toReport(row: ReportRow): Report {
         id: row.id,
         title: row.title,
         location: row.location,
+        latitude: toNumber(row.latitude),
+        longitude: toNumber(row.longitude),
         status: row.status,
         createdAt: row.created_at,
         upvotes: row.upvotes,
@@ -109,6 +111,8 @@ export function toPoll(row: PollFeedRow): Poll {
         id: row.id,
         title: row.title,
         location: row.location,
+        latitude: toNumber(row.latitude),
+        longitude: toNumber(row.longitude),
         closesAt: row.closes_at,
         hasVoted: row.has_voted,
     };

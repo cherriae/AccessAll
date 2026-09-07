@@ -70,7 +70,10 @@ password material itself.
   ratings and vote counts cannot be forged by a client.
 - **Geography** uses PostGIS. `places.location` is a generated point with a GiST index; the
   `places_nearby` and `places_in_bounds` functions serve map queries from that index rather
-  than scanning latitude/longitude columns.
+  than scanning latitude/longitude columns. Reports and polls carry the same shape: their
+  location is confirmed against the geocoder in the composer, so the coordinates stored with
+  it are real. Rows written before migration `0005` have null coordinates — their location is
+  unverified text and cannot be mapped.
 - **Configuration** is two `EXPO_PUBLIC_` variables in `.env` — see `.env.example`. Both are
   publishable values that are meant to ship in the client bundle. The database password and
   any `sb_secret_*` key bypass row level security and must never appear in this repo.
@@ -90,6 +93,9 @@ password material itself.
 - There is no bundled place dataset. Search the map, then use **Add this place to AccessAll**
   to contribute a location. Accessibility details, ratings, and sensory scores come from
   community reviews.
+- Filing a report or proposing a vote requires picking the location from the geocoder's
+  suggestions. Free text is deliberately not accepted: it cannot be placed on a map, and two
+  spellings of one doorway would otherwise become two unrelated records.
 - Detailed map tiles come from OpenStreetMap and require no API key. Follow the OSM tile
   usage policy and move to a dedicated or self-hosted tile service before high-volume use.
 - Worldwide place search uses the open-source Photon geocoder. Set
