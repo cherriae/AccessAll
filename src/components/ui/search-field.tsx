@@ -61,7 +61,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     // Matches body text so the field grows with the OS font scale.
-    fontFamily: Fonts?.sans,
+    fontFamily: Fonts.body,
     fontSize: Typography.body.fontSize,
     // Vertical padding rather than a fixed height, which would clip large text.
     paddingVertical: Spacing.two,

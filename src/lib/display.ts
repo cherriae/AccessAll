@@ -19,11 +19,13 @@ export interface Display {
 export const REPORT_STATUS_DISPLAY: Record<ReportStatus, Display> = {
   open: { label: 'Open', icon: 'open', accent: 'explore' },
   'in-progress': { label: 'In progress', icon: 'in-progress', accent: 'campus' },
-  resolved: { label: 'Resolved', icon: 'resolved', accent: 'verified' },
+  resolved: { label: 'Resolved', icon: 'resolved', accent: 'success' },
 };
 
 export const ACTIVITY_DISPLAY: Record<ActivityKind, Omit<Display, 'label'>> = {
   report: { icon: 'campus', accent: 'campus' },
   review: { icon: 'review', accent: 'explore' },
   vote: { icon: 'community', accent: 'community' },
+  comment: { icon: 'review', accent: 'campus' },
+  status: { icon: 'resolved', accent: 'success' },
 };

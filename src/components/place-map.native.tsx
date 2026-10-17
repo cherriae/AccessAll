@@ -3,8 +3,12 @@ import { useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/ui/text';
+import { useReducedMotion } from '@/hooks/use-reduced-motion';
 import { Radius } from '@/constants/theme';
-import type { MapBounds, Place } from '@/types';
+import { PIN_COLORS } from '@/constants/map';
+import type { MapBounds, MapPin, Place } from '@/types';
+
+const NO_PINS: MapPin[] = [];
 
 /** MapLibre reports bounds as `[west, south, east, north]`. */
 function toMapBounds([west, south, east, north]: [number, number, number, number]): MapBounds {
@@ -32,18 +36,27 @@ export interface PlaceMapProps {
   onSelect: (place: Place) => void;
   /** Fires once the map settles, so callers can fetch just what is visible. */
   onBoundsChange?: (bounds: MapBounds) => void;
+  /** Reports and elevator outages drawn alongside the places. */
+  pins?: MapPin[];
+  onPinPress?: (pin: MapPin) => void;
 }
 
-export function PlaceMap({ places, selectedId, onSelect, onBoundsChange }: PlaceMapProps) {
+export function PlaceMap({ places, selectedId, onSelect, onBoundsChange, pins = NO_PINS, onPinPress }: PlaceMapProps) {
   const camera = useRef<CameraRef>(null);
   const map = useRef<MapRef>(null);
-  const selected = places.find((place) => place.id === selectedId) ?? places[0];
+  const reduceMotion = useReducedMotion();
+  const selected = places.find((place) => place.id === selectedId);
+  const flownTo = useRef<string | undefined>(undefined);
 
+  // Fly only when the *selection* changes. Every pan refetches `places`, and
+  // re-flying on that dragged the camera back to the selection after each pan.
   useEffect(() => {
-    if (selected) {
-      camera.current?.flyTo({ center: [selected.longitude, selected.latitude], zoom: 14, duration: 500 });
-    }
-  }, [selected]);
+    if (!selected || flownTo.current === selected.id) return;
+    flownTo.current = selected.id;
+    camera.current?.flyTo({ center: [selected.longitude, selected.latitude], zoom: 14, duration: reduceMotion ? 0 : 500 });
+  }, [selected, reduceMotion]);
+
+  const initial = selected ?? places[0];
 
   return (
     <View style={styles.frame}>
@@ -62,7 +75,7 @@ export function PlaceMap({ places, selectedId, onSelect, onBoundsChange }: Place
         <Camera
           ref={camera}
           initialViewState={{
-            center: selected ? [selected.longitude, selected.latitude] : [-73.9822, 40.7532],
+            center: initial ? [initial.longitude, initial.latitude] : [-73.9822, 40.7532],
             zoom: 12,
           }}
         />
@@ -73,9 +86,25 @@ export function PlaceMap({ places, selectedId, onSelect, onBoundsChange }: Place
             lngLat={[place.longitude, place.latitude]}
             onPress={() => onSelect(place)}
           >
-            <View style={[styles.marker, selectedId === place.id ? styles.markerSelected : null]}>
-              <Text variant="caption" colorValue="#FFFFFF">{place.name.slice(0, 1)}</Text>
+            <View
+              style={[styles.marker, selectedId === place.id ? styles.markerSelected : null]}
+              accessible
+              accessibilityRole="button"
+              accessibilityLabel={place.category ? `${place.name}, ${place.category}` : place.name}
+              accessibilityState={{ selected: selectedId === place.id }}
+            >
+              <Text variant="caption" colorValue="#FFFFFF" importantForAccessibility="no">{place.name.slice(0, 1)}</Text>
             </View>
+          </Marker>
+        ))}
+        {pins.map((pin) => (
+          <Marker key={`${pin.kind}-${pin.id}`} id={`${pin.kind}-${pin.id}`} lngLat={[pin.longitude, pin.latitude]} onPress={() => onPinPress?.(pin)}>
+            <View
+              style={[styles.pin, { backgroundColor: PIN_COLORS[pin.kind], borderRadius: pin.kind === 'outage' ? 6 : Radius.full }]}
+              accessible
+              accessibilityRole={onPinPress ? 'button' : 'image'}
+              accessibilityLabel={pin.label}
+            />
           </Marker>
         ))}
       </Map>
@@ -88,7 +117,8 @@ const styles = StyleSheet.create({
   map: { flex: 1 },
   marker: {
     width: 32, height: 32, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#4F46E5', borderWidth: 3, borderColor: '#FFFFFF',
+    backgroundColor: PIN_COLORS.place, borderWidth: 3, borderColor: '#FFFFFF',
   },
-  markerSelected: { backgroundColor: '#C2410C', transform: [{ scale: 1.15 }] },
+  markerSelected: { backgroundColor: PIN_COLORS.selected, transform: [{ scale: 1.15 }] },
+  pin: { width: 22, height: 22, borderWidth: 3, borderColor: '#FFFFFF' },
 });

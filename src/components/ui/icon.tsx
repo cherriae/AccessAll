@@ -32,7 +32,6 @@ const GLYPHS = {
   campus: 'school',
   place: 'location',
   quiet: 'volume-low',
-  verified: 'shield-checkmark',
   community: 'people',
 
   // Access affordances
@@ -53,6 +52,14 @@ const GLYPHS = {
   // Chrome
   notifications: 'notifications-outline',
   chevron: 'chevron-forward',
+  'chevron-up': 'chevron-up',
+  'chevron-down': 'chevron-down',
+  back: 'chevron-back',
+  delete: 'trash-outline',
+  flag: 'flag-outline',
+  history: 'git-commit-outline',
+  shield: 'shield-outline',
+  map: 'map-outline',
   star: 'star',
   upvote: 'arrow-up-circle-outline',
   filter: 'options-outline',

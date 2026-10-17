@@ -1,7 +1,7 @@
 /**
  * Hand-maintained shape of the AccessAll Postgres schema.
  *
- * Mirrors `supabase/migrations/0001_init.sql`. Keeping it here (rather than
+ * Mirrors `supabase/migrations` (0001 through 0011). Keeping it here (rather than
  * running `supabase gen types`) means the repo type-checks without the Supabase
  * CLI installed — but it also means this file has to be edited whenever the
  * migration changes. Columns the database computes for you (generated columns
@@ -24,14 +24,16 @@ type Table<Row, Insert = Partial<Row>, Update = Partial<Row>> = {
 
 type View<Row> = { Row: Row; Relationships: [] };
 
+/** `email` exists on the table but is not readable by clients (0006). */
 export type ProfileRow = {
     id: string;
-    email: string;
     first_name: string;
     last_name: string;
     affiliation: string;
-    /** Generated: `first_name || ' ' || last_name`. */
+    /** Generated: `first_name || ' ' || last_name`. Readable only through `profile_stats`. */
     display_name: string;
+    /** Generated: "First L.", the only name other people see (0010). */
+    public_name: string;
     created_at: string;
 };
 
@@ -41,6 +43,9 @@ export type UserSettingsRow = {
     report_updates_enabled: boolean;
     vote_reminders_enabled: boolean;
     campus_name: string;
+    /** When the user last opened their activity feed; anything newer is unread. */
+    activity_seen_at: string;
+    access_needs: string[];
 };
 
 export type PlaceRow = {
@@ -65,8 +70,14 @@ export type PlaceRow = {
     created_at: string;
 };
 
-/** `location` is a generated geography column and `rating`/`review_count`/`quiet_score` are trigger-owned. */
-type PlaceWritable = Omit<PlaceRow, 'id' | 'rating' | 'review_count' | 'quiet_score' | 'created_at'>;
+/**
+ * `location` is a generated geography column, `rating`/`review_count`/`quiet_score` are
+ * trigger-owned, and the guide author and timestamp are stamped by a trigger.
+ */
+type PlaceWritable = Omit<
+    PlaceRow,
+    'id' | 'rating' | 'review_count' | 'quiet_score' | 'created_at' | 'guide_author_id' | 'guide_updated_at'
+>;
 
 export type ReviewRow = {
     id: string;
@@ -77,6 +88,8 @@ export type ReviewRow = {
     accessibility_notes: string;
     created_at: string;
     updated_at: string;
+    /** The quiet score came from the phone microphone, not an impression. */
+    quiet_measured: boolean;
 };
 
 /** `location_point` is a generated geography column, so it is not listed here. */
@@ -92,6 +105,13 @@ export type ReportRow = {
     created_at: string;
     /** Trigger-maintained from `report_upvotes`. */
     upvotes: number;
+    /** Trigger-maintained from `status`. */
+    resolved_at: string | null;
+    /** Latest update from school staff, written only by `staff_update_report`. */
+    staff_note: string;
+    staff_photo_path: string;
+    staff_updated_by: string | null;
+    staff_updated_at: string | null;
 };
 
 export type ReportCommentRow = {
@@ -131,10 +151,12 @@ export type PollVoteRow = {
 export type ActivityRow = {
     id: string;
     user_id: string;
-    kind: 'report' | 'review' | 'vote';
+    kind: 'report' | 'review' | 'vote' | 'comment' | 'status';
     title: string;
     subtitle: string;
     occurred_at: string;
+    /** Set when the entry is about a report, so the feed can open it. */
+    report_id: string | null;
 };
 
 export type AppFeatureRow = {
@@ -150,7 +172,6 @@ export type AppFeatureRow = {
 
 export type ProfileStatsRow = {
     id: string;
-    email: string;
     first_name: string;
     last_name: string;
     display_name: string;
@@ -178,6 +199,77 @@ export type PlaceFeedRow = Omit<PlaceRow, 'guide_author_id' | 'created_by'> & {
 
 export type ReviewFeedRow = ReviewRow & { author_name: string };
 
+export type DirectionStepJson = { text: string; photo?: string };
+
+export type PlaceDirectionRow = {
+    id: string;
+    place_id: string;
+    user_id: string;
+    title: string;
+    steps: DirectionStepJson[];
+    created_at: string;
+    updated_at: string;
+};
+
+export type DirectionFeedRow = Pick<PlaceDirectionRow, 'id' | 'place_id' | 'user_id' | 'title' | 'steps' | 'updated_at'> & {
+    author_name: string;
+};
+
+export type ContentTargetType = 'report' | 'comment' | 'review' | 'direction';
+export type ContentReportReason = 'harassment' | 'spam' | 'false-info' | 'inappropriate' | 'other';
+
+export type ContentReportRow = {
+    id: string;
+    reporter_id: string;
+    target_type: ContentTargetType;
+    target_id: string;
+    reason: ContentReportReason;
+    details: string;
+    status: 'open' | 'actioned' | 'dismissed';
+    created_at: string;
+};
+
+export type UserBlockRow = { blocker_id: string; blocked_id: string; created_at: string };
+
+export type ModerationQueueRow = {
+    target_type: ContentTargetType;
+    target_id: string;
+    report_count: number;
+    reasons: ContentReportReason[];
+    first_reported_at: string;
+    content: string;
+    is_hidden: boolean;
+};
+
+export type PlaceEditFeedRow = {
+    id: string;
+    place_id: string;
+    old_features: AccessFeature[];
+    new_features: AccessFeature[];
+    old_guide: string;
+    new_guide: string;
+    created_at: string;
+    reverted_at: string | null;
+    editor_name: string;
+};
+
+export type MyBlockRow = { blocked_id: string; created_at: string; blocked_name: string };
+
+export type StaffMemberRow = { user_id: string; title: string; added_at: string };
+
+export type ImpactSummaryRow = {
+    reports_total: number;
+    reports_resolved: number;
+    reports_in_progress: number;
+    people_affected: number;
+    /** `numeric`, so it may arrive as a string. Null until something is resolved. */
+    median_days_to_resolve: number | string | null;
+    places_reviewed: number;
+    reviews_total: number;
+    sound_measurements: number;
+    contributors: number;
+};
+
 export type ReportCommentFeedRow = ReportCommentRow & { author_name: string };
 
 export type Database = {
@@ -185,7 +277,7 @@ export type Database = {
         Tables: {
             profiles: Table<
                 ProfileRow,
-                Insertable<Omit<ProfileRow, 'display_name'>, 'id' | 'email'>,
+                never,
                 Partial<Pick<ProfileRow, 'first_name' | 'last_name' | 'affiliation'>>
             >;
             user_settings: Table<
@@ -196,16 +288,16 @@ export type Database = {
             places: Table<
                 PlaceRow,
                 Insertable<PlaceWritable, 'name' | 'latitude' | 'longitude' | 'created_by'>,
-                Partial<PlaceWritable>
+                Partial<Pick<PlaceRow, 'community_guide' | 'features'>>
             >;
             reviews: Table<
                 ReviewRow,
-                Insertable<Omit<ReviewRow, 'id' | 'created_at'>, 'place_id' | 'user_id' | 'rating'>,
-                Partial<Pick<ReviewRow, 'rating' | 'quiet_score' | 'accessibility_notes' | 'updated_at'>>
+                Insertable<Omit<ReviewRow, 'id' | 'created_at' | 'updated_at'>, 'place_id' | 'user_id' | 'rating'>,
+                Partial<Pick<ReviewRow, 'place_id' | 'user_id' | 'rating' | 'quiet_score' | 'accessibility_notes' | 'quiet_measured'>>
             >;
             reports: Table<
                 ReportRow,
-                Insertable<Omit<ReportRow, 'id' | 'created_at' | 'upvotes'>, 'title' | 'created_by'>,
+                Insertable<Pick<ReportRow, 'title' | 'location' | 'latitude' | 'longitude' | 'created_by'>, 'title' | 'created_by'>,
                 Partial<Pick<ReportRow, 'title' | 'location' | 'latitude' | 'longitude' | 'status'>>
             >;
             report_comments: Table<
@@ -228,6 +320,18 @@ export type Database = {
                 Insertable<PollVoteRow, 'poll_id' | 'user_id'>,
                 never
             >;
+            place_directions: Table<
+                PlaceDirectionRow,
+                Insertable<Pick<PlaceDirectionRow, 'place_id' | 'user_id' | 'title' | 'steps'>, 'place_id' | 'user_id' | 'title' | 'steps'>,
+                Partial<Pick<PlaceDirectionRow, 'title' | 'steps'>>
+            >;
+            staff_members: Table<StaffMemberRow, never, never>;
+            content_reports: Table<
+                ContentReportRow,
+                Insertable<Pick<ContentReportRow, 'reporter_id' | 'target_type' | 'target_id' | 'reason' | 'details'>, 'reporter_id' | 'target_type' | 'target_id' | 'reason'>,
+                never
+            >;
+            user_blocks: Table<UserBlockRow, Pick<UserBlockRow, 'blocker_id' | 'blocked_id'>, never>;
             activity: Table<ActivityRow, never, never>;
             app_features: Table<AppFeatureRow, never, never>;
         };
@@ -237,11 +341,36 @@ export type Database = {
             place_feed: View<PlaceFeedRow>;
             review_feed: View<ReviewFeedRow>;
             report_comment_feed: View<ReportCommentFeedRow>;
+            direction_feed: View<DirectionFeedRow>;
+            impact_summary: View<ImpactSummaryRow>;
+            moderation_queue: View<ModerationQueueRow>;
+            place_edit_feed: View<PlaceEditFeedRow>;
+            my_blocks: View<MyBlockRow>;
         };
         Functions: {
-            places_nearby: {
-                Args: { lat: number; lng: number; radius_meters?: number };
-                Returns: PlaceFeedRow[];
+            moderate_content: {
+                Args: { kind: ContentTargetType; target: string; decision: 'hide' | 'dismiss' };
+                Returns: undefined;
+            };
+            revert_place_edit: {
+                Args: { edit_id: string };
+                Returns: undefined;
+            };
+            mark_activity_seen: {
+                Args: Record<string, never>;
+                Returns: undefined;
+            };
+            is_staff: {
+                Args: { uid?: string };
+                Returns: boolean;
+            };
+            staff_update_report: {
+                Args: { report_id: string; new_status: string; note?: string; photo_path?: string };
+                Returns: undefined;
+            };
+            delete_my_account: {
+                Args: Record<string, never>;
+                Returns: undefined;
             };
             places_in_bounds: {
                 Args: { min_lat: number; min_lng: number; max_lat: number; max_lng: number };

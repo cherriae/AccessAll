@@ -1,9 +1,9 @@
 /**
  * Domain models for AccessAll.
  *
- * These are the shapes the UI renders. They are deliberately independent of any
- * API: when a backend lands, map its responses into these types at the data
- * layer rather than reshaping the components.
+ * These are the shapes the UI renders. They are deliberately independent of the
+ * database: `src/lib/mappers.ts` turns Supabase rows into these types, so
+ * components never reshape around a schema change.
  */
 
 import type { AccentName } from '@/constants/theme';
@@ -17,11 +17,10 @@ export type Timestamp = string;
  * type-checked — expo-router's `typedRoutes` experiment will reject a typo here
  * rather than failing silently at runtime.
  */
-export type AppRoute = '/' | '/reports' | '/explore' | '/activity' | '/profile';
+export type AppRoute = '/' | '/reports' | '/explore' | '/activity' | '/profile' | '/impact';
 
 export interface User {
   id: string;
-  email: string;
   firstName: string;
   lastName: string;
   /** Shown under the name on the profile screen. */
@@ -99,6 +98,17 @@ export interface Report {
    * the update silently affect no rows.
    */
   createdBy: string | null;
+  /** When the report was last marked resolved; null while it is not. */
+  resolvedAt: Timestamp | null;
+  /** The latest note from school staff, if any has been posted. */
+  staffUpdate: StaffUpdate | null;
+}
+
+export interface StaffUpdate {
+  note: string;
+  /** Storage path in the `photos` bucket; turn into a URL with `photoUrl()`. */
+  photoPath?: string;
+  updatedAt: Timestamp;
 }
 
 /** An open community decision, e.g. approving a new ramp. */
@@ -110,6 +120,8 @@ export interface Poll {
   latitude: number | null;
   longitude: number | null;
   closesAt: Timestamp;
+  /** People who have backed the proposal so far. */
+  voteCount: number;
   /** Whether the signed-in user has already voted. */
   hasVoted: boolean;
 }
@@ -129,6 +141,19 @@ export interface MapBounds {
   minLongitude: number;
   maxLatitude: number;
   maxLongitude: number;
+}
+
+/**
+ * Something other than a place drawn on the map: an open barrier report, or a
+ * subway elevator that is out of service.
+ */
+export interface MapPin {
+  id: string;
+  kind: 'report' | 'outage';
+  latitude: number;
+  longitude: number;
+  /** Read by screen readers and shown on hover. */
+  label: string;
 }
 
 /** A specific accessibility affordance a place offers. */
@@ -169,18 +194,26 @@ export interface Place {
 export interface Review {
   id: string;
   placeId: string;
+  /** Lets a screen recognise the signed-in user's own review. */
+  userId: string;
   authorName: string;
   rating: number;
   quietScore: number | null;
   accessibilityNotes: string;
   createdAt: Timestamp;
+  /** The quiet score was measured with the phone microphone. */
+  quietMeasured: boolean;
 }
 
 /* -------------------------------------------------------------------------- */
 /* Activity                                                                   */
 /* -------------------------------------------------------------------------- */
 
-export type ActivityKind = 'report' | 'review' | 'vote';
+/**
+ * `comment` and `status` are notifications about someone else's action on a
+ * report you filed or are affected by; the rest record your own actions.
+ */
+export type ActivityKind = 'report' | 'review' | 'vote' | 'comment' | 'status';
 
 /** A single entry in the user's activity feed. */
 export interface ActivityEvent {
@@ -189,11 +222,13 @@ export interface ActivityEvent {
   title: string;
   subtitle: string;
   occurredAt: Timestamp;
+  reportId: string | null;
 }
 
 export interface ReportComment {
   id: string;
   reportId: string;
+  userId: string;
   authorName: string;
   body: string;
   createdAt: Timestamp;
@@ -204,4 +239,87 @@ export interface AppSettings {
   reportUpdatesEnabled: boolean;
   voteRemindersEnabled: boolean;
   campusName: string;
+  activitySeenAt: Timestamp | null;
+  accessNeeds: AccessNeed[];
+}
+
+/* -------------------------------------------------------------------------- */
+/* Access profile                                                             */
+/* -------------------------------------------------------------------------- */
+
+/** Matches the check constraint on `user_settings.access_needs`. */
+export const ACCESS_NEEDS = ['wheelchair', 'temporary-injury', 'low-vision', 'deaf', 'sensory'] as const;
+export type AccessNeed = (typeof ACCESS_NEEDS)[number];
+
+/* -------------------------------------------------------------------------- */
+/* Step-free directions                                                       */
+/* -------------------------------------------------------------------------- */
+
+export interface DirectionStep {
+  text: string;
+  /** Storage path in the `photos` bucket. */
+  photoPath?: string;
+}
+
+export interface PlaceDirection {
+  id: string;
+  placeId: string;
+  userId: string;
+  title: string;
+  steps: DirectionStep[];
+  authorName: string;
+  updatedAt: Timestamp;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Impact                                                                     */
+/* -------------------------------------------------------------------------- */
+
+/* -------------------------------------------------------------------------- */
+/* Moderation                                                                 */
+/* -------------------------------------------------------------------------- */
+
+export type ContentTargetType = 'report' | 'comment' | 'review' | 'direction';
+export type ContentReportReason = 'harassment' | 'spam' | 'false-info' | 'inappropriate' | 'other';
+
+export interface ModerationItem {
+  targetType: ContentTargetType;
+  targetId: string;
+  reportCount: number;
+  reasons: ContentReportReason[];
+  firstReportedAt: Timestamp;
+  content: string;
+  /** Already hidden, e.g. automatically after three reports. */
+  isHidden: boolean;
+}
+
+export interface BlockedUser {
+  userId: string;
+  name: string;
+  blockedAt: Timestamp;
+}
+
+/** One change to a place's access features or community guide. */
+export interface PlaceEdit {
+  id: string;
+  placeId: string;
+  editorName: string;
+  added: string[];
+  removed: string[];
+  guideChanged: boolean;
+  createdAt: Timestamp;
+  revertedAt: Timestamp | null;
+}
+
+export interface ImpactSummary {
+  reportsTotal: number;
+  reportsResolved: number;
+  reportsInProgress: number;
+  peopleAffected: number;
+  /** Null until at least one report has been resolved. */
+  medianDaysToResolve: number | null;
+  placesReviewed: number;
+  reviewsTotal: number;
+  soundMeasurements: number;
+  contributors: number;
 }

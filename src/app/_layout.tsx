@@ -1,5 +1,14 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { QueryClientProvider } from "@tanstack/react-query";
+import {
+  AtkinsonHyperlegible_400Regular,
+  AtkinsonHyperlegible_700Bold,
+} from "@expo-google-fonts/atkinson-hyperlegible";
+import {
+  BricolageGrotesque_600SemiBold,
+  BricolageGrotesque_700Bold,
+  BricolageGrotesque_800ExtraBold,
+} from "@expo-google-fonts/bricolage-grotesque";
 import { useFonts } from "expo-font";
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
@@ -27,7 +36,14 @@ export default function RootLayout() {
    * it here means the first frame of UI already has its icons, instead of text
    * painting first and icons popping in a beat later.
    */
-  const [fontsLoaded] = useFonts(Ionicons.font);
+  const [fontsLoaded] = useFonts({
+    ...Ionicons.font,
+    AtkinsonHyperlegible_400Regular,
+    AtkinsonHyperlegible_700Bold,
+    BricolageGrotesque_600SemiBold,
+    BricolageGrotesque_700Bold,
+    BricolageGrotesque_800ExtraBold,
+  });
 
   /**
    * False during the web prerender pass and on the very first client render.
@@ -115,6 +131,10 @@ export default function RootLayout() {
                 <Stack.Screen name="(tabs)" />
                 <Stack.Screen name="auth" />
                 <Stack.Screen name="settings" />
+                <Stack.Screen name="access-profile" />
+                <Stack.Screen name="impact" />
+                <Stack.Screen name="moderation" />
+                <Stack.Screen name="onboarding" options={{ animation: "fade" }} />
                 <Stack.Screen name="place/[id]" />
                 <Stack.Screen name="report/[id]" />
               </Stack>

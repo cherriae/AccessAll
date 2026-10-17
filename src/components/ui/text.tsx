@@ -1,6 +1,6 @@
 import { StyleSheet, Text as RNText, type TextProps as RNTextProps } from 'react-native';
 
-import { Fonts, Typography, type ThemeColor, type TypographyVariant } from '@/constants/theme';
+import { Typography, type ThemeColor, type TypographyVariant } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export interface TextProps extends RNTextProps {
@@ -33,7 +33,6 @@ export function Text({
   return (
     <RNText
       style={[
-        styles.base,
         Typography[variant],
         { color: colorValue ?? theme[color] },
         align ? { textAlign: align } : null,
@@ -54,9 +53,6 @@ export function Heading({ variant = 'heading', ...rest }: TextProps) {
 }
 
 const styles = StyleSheet.create({
-  base: {
-    fontFamily: Fonts?.sans,
-  },
   uppercase: {
     textTransform: 'uppercase',
   },

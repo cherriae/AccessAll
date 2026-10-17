@@ -1,22 +1,27 @@
 import { useState, type ReactNode } from "react";
 import { useRouter } from "expo-router";
-import { Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 
 import { LocationPicker } from "@/components/location-picker";
 import { ReportRow } from "@/components/report-row";
+import { Appear } from "@/components/ui/appear";
 import { Button } from "@/components/ui/button";
 import { ChipGroup, type ChipOption } from "@/components/ui/chip-group";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ErrorState, LoadingState } from "@/components/ui/loading-state";
+import { Notice } from "@/components/ui/notice";
 import { FormField } from "@/components/ui/form-field";
 import { Screen } from "@/components/ui/screen";
+import { HeaderStat, PageHeader } from "@/components/ui/page-header";
 import { Section } from "@/components/ui/section";
 import { Heading, Text } from "@/components/ui/text";
 import { VoteCallout } from "@/components/vote-callout";
 import { Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
-import { useAddPoll, usePolls, useVotePoll } from "@/hooks/usePolls";
-import { useSchoolReport, useSchoolReportAdd } from "@/hooks/useSchoolReport";
+import { useAddPoll, usePolls } from "@/hooks/usePolls";
+import { useAddReport, useReports } from "@/hooks/useReports";
 import { REPORT_STATUS_DISPLAY } from "@/lib/display";
+import { errorText } from "@/lib/errors";
 import type { LocationSelection, ReportStatus } from "@/types";
 import { REPORT_STATUSES } from "@/types";
 
@@ -68,7 +73,11 @@ function Composer({
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={styles.modalBackdrop}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        enabled={Platform.OS !== "web"}
+        style={styles.modalBackdrop}
+      >
         <View style={[styles.modalCard, { backgroundColor: theme.surface }]}>
           <ScrollView
             contentContainerStyle={styles.modalContent}
@@ -81,25 +90,7 @@ function Composer({
 
             <View style={styles.form}>{children}</View>
 
-            {/*
-              Rendered in the sheet rather than raised as a native alert:
-              `Alert.alert` is an empty function on react-native-web, so on the
-              web build every validation message was discarded silently and the
-              save button simply appeared to do nothing.
-            */}
-            {error ? (
-              <View
-                style={[
-                  styles.error,
-                  { borderColor: theme.danger, backgroundColor: theme.backgroundElement },
-                ]}
-                accessibilityLiveRegion="polite"
-              >
-                <Text variant="callout" color="danger">
-                  {error}
-                </Text>
-              </View>
-            ) : null}
+            <Notice message={error} />
 
             <View style={styles.modalActions}>
               <Pressable
@@ -114,7 +105,7 @@ function Composer({
             </View>
           </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -126,10 +117,9 @@ export default function ReportsScreen() {
   const [title, setTitle] = useState("");
   const [location, setLocation] = useState<LocationSelection | null>(null);
   const [reportError, setReportError] = useState<string | null>(null);
-  const reportsQuery = useSchoolReport();
-  const addReport = useSchoolReportAdd();
+  const reportsQuery = useReports();
+  const addReport = useAddReport();
   const pollsQuery = usePolls();
-  const votePoll = useVotePoll();
   const addPoll = useAddPoll();
   const [voteComposerOpen, setVoteComposerOpen] = useState(false);
   const [voteTitle, setVoteTitle] = useState("");
@@ -140,7 +130,9 @@ export default function ReportsScreen() {
     filter === "all"
       ? (reportsQuery.data ?? [])
       : (reportsQuery.data ?? []).filter((r) => r.status === filter);
-  const openVotes = (pollsQuery.data ?? []).filter((poll) => !poll.hasVoted);
+  const openVotes = pollsQuery.data ?? [];
+  const counts = { open: 0, "in-progress": 0, resolved: 0 };
+  for (const report of reportsQuery.data ?? []) counts[report.status] += 1;
 
   function openCreateComposer() {
     setTitle("");
@@ -178,7 +170,7 @@ export default function ReportsScreen() {
       setReportError(
         code === "AUTH_REQUIRED"
           ? "Sign in to file a report."
-          : "Could not save this report. Please try again.",
+          : errorText(error, "Could not save this report. Please try again."),
       );
       return;
     }
@@ -214,7 +206,7 @@ export default function ReportsScreen() {
       setVoteError(
         code === "AUTH_REQUIRED"
           ? "Sign in to propose a vote."
-          : "Could not propose this vote. Please try again.",
+          : errorText(error, "Could not propose this vote. Please try again."),
       );
       return;
     }
@@ -226,12 +218,18 @@ export default function ReportsScreen() {
 
   return (
     <Screen>
-      <View style={styles.intro}>
-        <Heading variant="title">Campus reports</Heading>
-        <Text variant="body" color="textSecondary">
-          Barriers reported at your school and nearby places.
-        </Text>
-      </View>
+      <PageHeader
+        title="Campus reports"
+        subtitle="Barriers reported at your school and nearby, and what is being done about them."
+        icon="campus"
+        accent="campus"
+      >
+        <View style={styles.headerStats}>
+          <HeaderStat value={String(counts.open)} label="open" accent="explore" />
+          <HeaderStat value={String(counts["in-progress"])} label="in progress" accent="campus" />
+          <HeaderStat value={String(counts.resolved)} label="fixed" accent="success" />
+        </View>
+      </PageHeader>
 
       <Button
         label="Report an issue"
@@ -255,11 +253,7 @@ export default function ReportsScreen() {
         <Section title="Open votes">
           <View style={styles.list}>
             {openVotes.map((poll) => (
-              <VoteCallout
-                key={poll.id}
-                poll={poll}
-                onVote={(selected) => votePoll.mutate(selected.id)}
-              />
+              <VoteCallout key={poll.id} poll={poll} />
             ))}
           </View>
         </Section>
@@ -275,21 +269,30 @@ export default function ReportsScreen() {
           onChange={setFilter}
         />
 
-        {visible.length > 0 ? (
+        {reportsQuery.isLoading ? (
+          <LoadingState label="Loading reports" />
+        ) : reportsQuery.isError ? (
+          <ErrorState title="Could not load reports" onRetry={() => reportsQuery.refetch()} />
+        ) : visible.length > 0 ? (
           <View style={styles.list}>
-            {visible.map((report) => (
-              <ReportRow
-                key={report.id}
-                report={report}
-                onPress={(report) => router.push(`/report/${report.id}` as never)}
-              />
+            {visible.map((report, index) => (
+              <Appear key={report.id} index={index}>
+                <ReportRow
+                  report={report}
+                  onPress={(report) => router.push(`/report/${report.id}` as never)}
+                />
+              </Appear>
             ))}
           </View>
         ) : (
           <EmptyState
             icon="resolved"
-            title="Nothing here"
-            message="No reports match this filter. Try selecting All."
+            title={filter === "all" ? "No reports yet" : "Nothing here"}
+            message={
+              filter === "all"
+                ? "Be the first to report a barrier at your school."
+                : "No reports match this filter. Try selecting All."
+            }
           />
         )}
       </Section>
@@ -358,8 +361,9 @@ export default function ReportsScreen() {
 }
 
 const styles = StyleSheet.create({
-  intro: {
-    gap: Spacing.two,
+  headerStats: {
+    flexDirection: "row",
+    gap: Spacing.three,
   },
   list: {
     gap: Spacing.two,
@@ -384,11 +388,6 @@ const styles = StyleSheet.create({
   },
   form: {
     gap: Spacing.three,
-  },
-  error: {
-    padding: Spacing.three,
-    borderWidth: 1,
-    borderRadius: Radius.md,
   },
   modalActions: {
     flexDirection: "row",

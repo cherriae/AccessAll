@@ -1,8 +1,11 @@
+import { useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
-import { ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { Icon } from '@/components/ui/icon';
+import { Text } from '@/components/ui/text';
+import { MaxContentWidth, MinTouchTarget, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export interface ScreenProps {
@@ -12,6 +15,35 @@ export interface ScreenProps {
   /** Set false for screens that manage their own scrolling (e.g. a FlatList). */
   scrollable?: boolean;
   contentStyle?: StyleProp<ViewStyle>;
+  /**
+   * Show a Back control above the content. Set on every screen pushed over the
+   * tabs: the stack header is hidden app-wide, and a swipe or hardware key is
+   * not something every user can perform or discover.
+   */
+  back?: boolean;
+}
+
+/**
+ * Goes back when there is somewhere to go, otherwise home — a screen opened
+ * from a shared web link has no history to return to.
+ */
+function BackButton() {
+  const router = useRouter();
+
+  return (
+    <Pressable
+      onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
+      accessibilityRole="button"
+      accessibilityLabel="Back"
+      hitSlop={Spacing.two}
+      style={styles.back}
+    >
+      <Icon name="back" size={22} color="brand" />
+      <Text variant="label" color="brand">
+        Back
+      </Text>
+    </Pressable>
+  );
 }
 
 /**
@@ -22,7 +54,7 @@ export interface ScreenProps {
  * The column cap keeps line lengths readable when the app runs on a tablet or
  * in a desktop browser, where full-width body text becomes hard to track.
  */
-export function Screen({ children, header, scrollable = true, contentStyle }: ScreenProps) {
+export function Screen({ children, header, scrollable = true, contentStyle, back }: ScreenProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
 
@@ -34,11 +66,21 @@ export function Screen({ children, header, scrollable = true, contentStyle }: Sc
   };
 
   const body = (
-    <View style={[styles.column, contentStyle]}>{children}</View>
+    <View style={[styles.column, contentStyle]}>
+      {back ? <BackButton /> : null}
+      {children}
+    </View>
   );
 
   return (
-    <View style={[styles.root, { backgroundColor: theme.background }]}>
+    // Keeps the focused field and the button under it above the on-screen
+    // keyboard. Android edge-to-edge no longer resizes the window for the
+    // keyboard by itself, so both platforms need this.
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      enabled={Platform.OS !== 'web'}
+      style={[styles.root, { backgroundColor: theme.background }]}
+    >
       {header ? <View style={{ paddingTop: insets.top }}>{header}</View> : null}
 
       {scrollable ? (
@@ -50,6 +92,7 @@ export function Screen({ children, header, scrollable = true, contentStyle }: Sc
             header ? null : { paddingTop: insets.top + Spacing.three },
           ]}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
           // Lets users flick back to the top of long report lists.
           scrollsToTop
         >
@@ -67,7 +110,7 @@ export function Screen({ children, header, scrollable = true, contentStyle }: Sc
           {body}
         </View>
       )}
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -82,6 +125,14 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.three,
     // Clears the tab bar and leaves breathing room at the end of a list.
     paddingBottom: Spacing.five,
+  },
+  back: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: Spacing.one,
+    minHeight: MinTouchTarget,
+    marginBottom: -Spacing.three,
   },
   column: {
     width: '100%',

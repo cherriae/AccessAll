@@ -7,47 +7,6 @@ import { requireUserId, supabase, unwrap, unwrapOne } from '@/lib/supabase';
 /** Coordinates within ~11m of each other describe the same venue. */
 const SAME_PLACE_DEGREES = 0.0001;
 
-export function usePlaces() {
-    return useQuery<Place[]>({
-        queryKey: ['places'],
-        queryFn: async () => {
-            const rows = unwrap(
-                await supabase.from('place_feed').select('*').order('created_at', { ascending: true }),
-            );
-
-            return rows.map(toPlace);
-        },
-    });
-}
-
-/**
- * Places within `radiusMeters` of a point, nearest first.
- *
- * Backed by the `places_nearby` RPC, which uses the GiST index on the generated
- * geography column — so this stays fast as the map fills up, unlike filtering
- * raw latitude/longitude in the client.
- */
-export function useNearbyPlaces(
-    center?: { latitude: number; longitude: number },
-    radiusMeters = 5000,
-) {
-    return useQuery<Place[]>({
-        queryKey: ['places', 'nearby', center?.latitude, center?.longitude, radiusMeters],
-        enabled: Boolean(center),
-        queryFn: async () => {
-            const rows = unwrap(
-                await supabase.rpc('places_nearby', {
-                    lat: center!.latitude,
-                    lng: center!.longitude,
-                    radius_meters: radiusMeters,
-                }),
-            );
-
-            return rows.map(toPlace);
-        },
-    });
-}
-
 /**
  * Snapping bounds to a grid before querying.
  *
@@ -103,6 +62,31 @@ export function usePlacesInBounds(bounds?: MapBounds) {
     });
 }
 
+/** `ilike` treats `%` and `_` as wildcards; a venue name must match literally. */
+function escapeLike(value: string) {
+    return value.replace(/[\\%_]/g, (match) => `\\${match}`);
+}
+
+/**
+ * The stored place with this name at (effectively) these coordinates, if any.
+ * Mirrors the `places_identity_idx` unique index.
+ */
+async function findSamePlace(name: string, latitude: number, longitude: number) {
+    const rows = unwrap(
+        await supabase
+            .from('place_feed')
+            .select('*')
+            .ilike('name', escapeLike(name))
+            .gte('latitude', latitude - SAME_PLACE_DEGREES)
+            .lte('latitude', latitude + SAME_PLACE_DEGREES)
+            .gte('longitude', longitude - SAME_PLACE_DEGREES)
+            .lte('longitude', longitude + SAME_PLACE_DEGREES)
+            .limit(1),
+    );
+
+    return rows.length > 0 ? toPlace(rows[0]) : null;
+}
+
 export function useAddPlace() {
     const queryClient = useQueryClient();
 
@@ -114,20 +98,10 @@ export function useAddPlace() {
             // Two people contributing the same venue from map search should
             // converge on one record, not create rivals. A unique index backs
             // this up if both arrive at once.
-            const existing = unwrap(
-                await supabase
-                    .from('place_feed')
-                    .select('*')
-                    .ilike('name', name)
-                    .gte('latitude', payload.latitude - SAME_PLACE_DEGREES)
-                    .lte('latitude', payload.latitude + SAME_PLACE_DEGREES)
-                    .gte('longitude', payload.longitude - SAME_PLACE_DEGREES)
-                    .lte('longitude', payload.longitude + SAME_PLACE_DEGREES)
-                    .limit(1),
-            );
+            const existing = await findSamePlace(name, payload.latitude, payload.longitude);
 
-            if (existing.length > 0) {
-                return toPlace(existing[0]);
+            if (existing) {
+                return existing;
             }
 
             const inserted = await supabase
@@ -149,13 +123,11 @@ export function useAddPlace() {
 
             // 23505 is a unique violation: somebody else added it first.
             if (inserted.error?.code === '23505') {
-                await queryClient.invalidateQueries({ queryKey: ['places'] });
-                const rows = unwrap(
-                    await supabase.from('place_feed').select('*').ilike('name', name).limit(1),
-                );
+                const winner = await findSamePlace(name, payload.latitude, payload.longitude);
 
-                if (rows.length > 0) {
-                    return toPlace(rows[0]);
+                if (winner) {
+                    await queryClient.invalidateQueries({ queryKey: ['places'] });
+                    return winner;
                 }
             }
 
@@ -173,6 +145,12 @@ export function useAddPlace() {
     });
 }
 
+/**
+ * Adds features and, optionally, replaces the community guide text.
+ *
+ * An empty guide means "I only ticked feature boxes", never "delete the guide
+ * someone else wrote". Who wrote the guide and when is stamped by the database.
+ */
 export function useUpdatePlaceGuide() {
     const queryClient = useQueryClient();
 
@@ -182,23 +160,23 @@ export function useUpdatePlaceGuide() {
             features: Place['features'];
             communityGuide: string;
         }) => {
-            const userId = await requireUserId();
+            await requireUserId();
+            const guide = payload.communityGuide.trim();
 
-            unwrap(
+            unwrapOne(
                 await supabase
                     .from('places')
-                    .update({
-                        features: payload.features,
-                        community_guide: payload.communityGuide.trim(),
-                        guide_author_id: userId,
-                        guide_updated_at: new Date().toISOString(),
-                    })
-                    .eq('id', payload.placeId),
+                    .update(guide ? { features: payload.features, community_guide: guide } : { features: payload.features })
+                    .eq('id', payload.placeId)
+                    .select('id')
+                    .maybeSingle(),
+                'Place could not be updated',
             );
 
             await Promise.all([
                 queryClient.invalidateQueries({ queryKey: ['places'] }),
                 queryClient.invalidateQueries({ queryKey: ['place', payload.placeId] }),
+                queryClient.invalidateQueries({ queryKey: ['placeEdits', payload.placeId] }),
             ]);
         },
     });
