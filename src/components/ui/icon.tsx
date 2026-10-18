@@ -33,6 +33,12 @@ const GLYPHS = {
   place: 'location',
   quiet: 'volume-low',
   community: 'people',
+  radar: 'radio-outline',
+  train: 'train-outline',
+  empathy: 'glasses-outline',
+  replay: 'play-circle-outline',
+  pause: 'pause-circle-outline',
+  warning: 'warning-outline',
 
   // Access affordances
   ramp: 'trending-up',

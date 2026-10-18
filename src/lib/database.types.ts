@@ -46,6 +46,8 @@ export type UserSettingsRow = {
     /** When the user last opened their activity feed; anything newer is unread. */
     activity_seen_at: string;
     access_needs: string[];
+    /** MTA station complex ids watched by Detour Radar. */
+    watched_stations: string[];
 };
 
 export type PlaceRow = {
@@ -255,6 +257,14 @@ export type PlaceEditFeedRow = {
 
 export type MyBlockRow = { blocked_id: string; created_at: string; blocked_name: string };
 
+export type RampMeasurementRow = {
+    place_id: string;
+    user_id: string;
+    /** `numeric`, so it may arrive as a string. */
+    slope_percent: number | string;
+    created_at: string;
+};
+
 export type StaffMemberRow = { user_id: string; title: string; added_at: string };
 
 export type ImpactSummaryRow = {
@@ -268,6 +278,7 @@ export type ImpactSummaryRow = {
     reviews_total: number;
     sound_measurements: number;
     contributors: number;
+    ramps_measured: number;
 };
 
 export type ReportCommentFeedRow = ReportCommentRow & { author_name: string };
@@ -326,6 +337,11 @@ export type Database = {
                 Partial<Pick<PlaceDirectionRow, 'title' | 'steps'>>
             >;
             staff_members: Table<StaffMemberRow, never, never>;
+            ramp_measurements: Table<
+                RampMeasurementRow,
+                Insertable<Pick<RampMeasurementRow, 'place_id' | 'user_id' | 'slope_percent'>, 'place_id' | 'user_id' | 'slope_percent'>,
+                Partial<Pick<RampMeasurementRow, 'slope_percent' | 'created_at'>>
+            >;
             content_reports: Table<
                 ContentReportRow,
                 Insertable<Pick<ContentReportRow, 'reporter_id' | 'target_type' | 'target_id' | 'reason' | 'details'>, 'reporter_id' | 'target_type' | 'target_id' | 'reason'>,

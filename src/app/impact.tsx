@@ -2,6 +2,8 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { FixTimeline } from '@/components/fix-timeline';
+import { PromoCard } from '@/components/promo-card';
 import { ReportRow } from '@/components/report-row';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -67,6 +69,8 @@ export default function ImpactScreen() {
         <Stat value={formatCount(summary.contributors)} label="contributors" accent="community" />
       </View>
 
+      <FixTimeline />
+
       <Section title="Getting barriers fixed">
         <Card style={styles.card}>
           <Text variant="bodyStrong">{resolvedShare}% of reported barriers are fixed</Text>
@@ -91,10 +95,20 @@ export default function ImpactScreen() {
         <Card style={styles.card}>
           <Text>
             {formatCount(summary.placesReviewed)} places reviewed in {formatCount(summary.reviewsTotal)} reviews,
-            including {formatCount(summary.soundMeasurements)} noise levels measured with a microphone.
+            including {formatCount(summary.soundMeasurements)} noise levels measured with a microphone
+            and {formatCount(summary.rampsMeasured)} ramp slopes measured with a phone&apos;s motion sensor.
           </Text>
         </Card>
       </Section>
+
+      <PromoCard
+        icon="empathy"
+        accent="quiet"
+        title="Why it matters"
+        body="Try the Empathy Lens: two minutes with low vision, colour blindness, tremor and a screen reader."
+        action="Try it"
+        onPress={() => router.push('/empathy' as never)}
+      />
 
       <Section title="Most urgent open barriers">
         {topQuery.isLoading ? (

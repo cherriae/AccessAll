@@ -7,4 +7,5 @@ export const PIN_COLORS = {
   selected: '#C2410C',
   report: '#B45309',
   outage: '#0E7490',
+  fixed: '#047857',
 } as const;

@@ -48,7 +48,7 @@ import type {
  * parses large numerics as strings would otherwise land a string in a `number`
  * field and render "NaN" stars.
  */
-function toNumber(value: number | string | null): number | null {
+export function toNumber(value: number | string | null): number | null {
     if (value === null) {
         return null;
     }
@@ -204,6 +204,7 @@ export function toAppSettings(row: UserSettingsRow | null): AppSettings {
         accessNeeds: (row?.access_needs ?? []).filter((need): need is AccessNeed =>
             (ACCESS_NEEDS as readonly string[]).includes(need),
         ),
+        watchedStations: row?.watched_stations ?? [],
     };
 }
 
@@ -232,6 +233,7 @@ export function toImpactSummary(row: ImpactSummaryRow): ImpactSummary {
         reviewsTotal: row.reviews_total,
         soundMeasurements: row.sound_measurements,
         contributors: row.contributors,
+        rampsMeasured: row.ramps_measured ?? 0,
     };
 }
 

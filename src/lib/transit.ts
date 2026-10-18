@@ -16,7 +16,7 @@ import type { MapBounds } from '@/types';
 
 export const OUTAGES_URL = 'https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/nyct%2Fnyct_ene.json';
 export const EQUIPMENT_URL = 'https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/nyct%2Fnyct_ene_equipments.json';
-export const STATIONS_URL = 'https://data.ny.gov/resource/39hk-dx4f.json?$limit=1000&$select=complex_id,stop_name,gtfs_latitude,gtfs_longitude';
+export const STATIONS_URL = 'https://data.ny.gov/resource/39hk-dx4f.json?$limit=1000&$select=complex_id,stop_name,gtfs_latitude,gtfs_longitude,ada,daytime_routes';
 
 export interface RawOutage {
   station?: string;
@@ -42,10 +42,16 @@ export interface RawStation {
   stop_name?: string;
   gtfs_latitude?: string;
   gtfs_longitude?: string;
+  /** "1" fully step-free, "2" partly (some directions only), "0" not. */
+  ada?: string;
+  /** Space-separated, e.g. "A C E". */
+  daytime_routes?: string;
 }
 
 export interface ElevatorOutage {
   equipment: string;
+  /** MTA station complex id, the key Detour Radar watches. */
+  complexId: string;
   station: string;
   lines: string;
   /** Where the elevator goes, e.g. "Street to Manhattan-bound platform". */
@@ -93,6 +99,7 @@ export function joinElevatorOutages(
 
     result.push({
       equipment: outage.equipment,
+      complexId: unit!.stationcomplexid!,
       station: outage.station ?? 'Subway station',
       lines: outage.trainno ?? '',
       serving: outage.serving ?? '',

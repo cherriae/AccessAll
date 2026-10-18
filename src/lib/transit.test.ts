@@ -28,6 +28,7 @@ test('joins current elevator outages to station coordinates by equipment id', ()
   assert.equal(result.length, 1);
   assert.deepEqual(result[0], {
     equipment: 'EL1',
+    complexId: '10',
     station: 'DeKalb Av',
     lines: 'B/Q/R',
     serving: 'Street to platform',

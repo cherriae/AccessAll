@@ -133,6 +133,8 @@ export default function RootLayout() {
                 <Stack.Screen name="settings" />
                 <Stack.Screen name="access-profile" />
                 <Stack.Screen name="impact" />
+                <Stack.Screen name="radar" />
+                <Stack.Screen name="empathy" />
                 <Stack.Screen name="moderation" />
                 <Stack.Screen name="onboarding" options={{ animation: "fade" }} />
                 <Stack.Screen name="place/[id]" />

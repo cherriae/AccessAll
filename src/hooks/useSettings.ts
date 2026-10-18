@@ -80,6 +80,29 @@ export function useUpdateAccessNeeds() {
     });
 }
 
+/** Saves the stations Detour Radar watches (MTA complex ids, at most 10). */
+export function useUpdateWatchedStations() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (stations: string[]) => {
+            const userId = await requireUserId();
+
+            unwrapOne(
+                await supabase
+                    .from('user_settings')
+                    .update({ watched_stations: stations })
+                    .eq('user_id', userId)
+                    .select('user_id')
+                    .maybeSingle(),
+                'Your stations could not be saved',
+            );
+
+            await queryClient.invalidateQueries({ queryKey: ['settings'] });
+        },
+    });
+}
+
 /** The signed-in user's access needs; empty when signed out or not set. */
 export function useAccessNeeds(): AccessNeed[] {
     return useSettings().data?.accessNeeds ?? EMPTY_NEEDS;

@@ -308,14 +308,14 @@ select 'profile_stats counts your contributions', report_count = 0 and review_co
        format('reports=%s reviews=%s votes=%s', report_count, review_count, vote_count)
 from public.profile_stats where id = '22222222-2222-2222-2222-222222222222';
 
-do $
+do $$
 begin
     perform last_name from public.profiles limit 1;
     insert into checks values ('last names and affiliation are private', false, 'select was allowed');
 exception when insufficient_privilege then
     insert into checks values ('last names and affiliation are private', true, 'rejected');
 end;
-$;
+$$;
 
 insert into checks
 select 'who upvoted is private', count(*) = 0, count(*)::text
@@ -368,6 +368,59 @@ insert into checks
 select 'reporters only see their own reports', count(*) = 1, count(*)::text
 from public.content_reports;
 
+-- 0013: ramp measurements and Detour Radar, acting as Bob.
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}';
+
+insert into public.ramp_measurements (place_id, user_id, slope_percent)
+values ('aaaaaaaa-0000-0000-0000-000000000001', '22222222-2222-2222-2222-222222222222', 7.5);
+
+insert into checks
+select 'ramp measurement saved', count(*) = 1, count(*)::text
+from public.ramp_measurements where place_id = 'aaaaaaaa-0000-0000-0000-000000000001';
+
+do $
+begin
+    insert into public.ramp_measurements (place_id, user_id, slope_percent)
+    values ('aaaaaaaa-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 30);
+    insert into checks values ('cannot measure as someone else', false, 'insert was allowed');
+exception when insufficient_privilege then
+    insert into checks values ('cannot measure as someone else', true, 'rejected');
+end;
+$;
+
+do $
+begin
+    insert into public.ramp_measurements (place_id, user_id, slope_percent)
+    values ('aaaaaaaa-0000-0000-0000-000000000001', '22222222-2222-2222-2222-222222222222', 9);
+    insert into checks values ('one measurement per person per place', false, 'duplicate was allowed');
+exception when unique_violation then
+    insert into checks values ('one measurement per person per place', true, 'rejected');
+end;
+$;
+
+update public.user_settings set watched_stations = array['611', '1']
+where user_id = '22222222-2222-2222-2222-222222222222';
+
+insert into checks
+select 'watched stations saved', watched_stations = array['611', '1'], array_to_string(watched_stations, ',')
+from public.user_settings where user_id = '22222222-2222-2222-2222-222222222222';
+
+do $
+begin
+    update public.user_settings set watched_stations = array['not-a-station']
+    where user_id = '22222222-2222-2222-2222-222222222222';
+    insert into checks values ('watched stations must be station ids', false, 'update was allowed');
+exception when check_violation then
+    insert into checks values ('watched stations must be station ids', true, 'rejected');
+end;
+$;
+
+-- 0012: hidden content whose author deleted their account stays hidden.
+reset role;
+insert into public.reports (id, title, location, latitude, longitude, created_by, hidden_at)
+values ('bbbbbbbb-0000-0000-0000-000000000099', 'Orphaned', 'Nowhere', 40.6892, -73.9760, null, now());
+
 -- ---------------------------------------------------------------------------
 -- Anonymous visitor
 -- ---------------------------------------------------------------------------
@@ -377,6 +430,10 @@ set local request.jwt.claims = '{"role":"anon"}';
 
 insert into checks
 select 'anonymous can browse places', count(*) >= 1, count(*)::text from public.places;
+
+insert into checks
+select 'anonymous cannot see hidden orphaned content', count(*) = 0, count(*)::text
+from public.reports where id = 'bbbbbbbb-0000-0000-0000-000000000099';
 
 do $$
 begin

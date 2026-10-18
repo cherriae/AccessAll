@@ -53,6 +53,16 @@ npx expo run:android
 # or: npx expo run:ios
 ```
 
+Without Android Studio, build it in the cloud with EAS instead. `.env` is not uploaded, so
+give EAS the two public Supabase values once, then build and install the APK it links to:
+
+```powershell
+eas env:create --name EXPO_PUBLIC_SUPABASE_URL --value <url> --environment development --visibility plaintext
+eas env:create --name EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY --value <key> --environment development --visibility plaintext
+eas build --profile development --platform android
+npx expo start --dev-client
+```
+
 Create an account from the **Profile** tab the first time you run it.
 
 ## What makes AccessAll different
@@ -72,6 +82,15 @@ Create an account from the **Profile** tab the first time you run it.
 - **Live subway elevator outages** — when the map shows New York City, Explore shows elevators
   out of service right now as map pins (with toggles for places, open barriers and outages) and
   as a list with the MTA's suggested alternative.
+- **Detour Radar** — people watch up to 10 stations; when an elevator on a station's step-free
+  route is out, the home screen says so and ranks the nearest working step-free stations,
+  preferring ones on the same line (`src/lib/detour.ts`).
+- **Ramp check** — lay a phone on a ramp and the accelerometer measures its slope against the
+  ADA's 1:12 limit; a place shows the median of everyone's measurements (`src/lib/slope.ts`).
+- **Empathy Lens** — four short simulations (low vision, colour blindness, tremor, screen
+  reader), each followed by the design choice AccessAll makes because of it (`/empathy`).
+- **Fix Timeline** — the Impact page replays every report on the map: amber when reported,
+  green when fixed.
 - **Safe for students** — anyone can report a comment, review, report or set of directions;
   three reports hide it until staff decide; people can block each other. Every change to a
   place's access details is logged and staff can undo it.
@@ -107,7 +126,10 @@ password material itself.
   posted; a report's wording locks once others have backed it.
 - **Moderation and history** (`0011`): `content_reports`, `user_blocks`, `hidden_at` on
   user content, the `moderation_queue` view and `moderate_content` / `revert_place_edit`
-  functions for staff, and `place_edits`.
+  functions for staff, and `place_edits`. `0012` keeps hidden content hidden after its
+  author deletes their account.
+- **Ramp check and Detour Radar** (`0013`): `ramp_measurements` (one per person per place),
+  `user_settings.watched_stations`, and `ramps_measured` in `impact_summary`.
 - **Account deletion** is the `delete_my_account` function (`0008`). Reports and places the
   person created stay, without their name.
 - **Geography** uses PostGIS. `places.location` is a generated point with a GiST index; the

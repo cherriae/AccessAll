@@ -5,6 +5,8 @@ import { ActivityRow } from "@/components/activity-row";
 import { AppHeader } from "@/components/app-header";
 import { FeatureCard } from "@/components/feature-card";
 import { HomeHero } from "@/components/home-hero";
+import { PromoCard } from "@/components/promo-card";
+import { RadarHome } from "@/components/radar-home";
 import { Appear } from "@/components/ui/appear";
 import { Screen } from "@/components/ui/screen";
 import { Section } from "@/components/ui/section";
@@ -47,6 +49,8 @@ export default function HomeScreen() {
         <HomeHero firstName={currentUser?.firstName} />
       </Appear>
 
+      <RadarHome />
+
       <View style={styles.grid}>
         {(featuresQuery.data ?? []).map((feature) => (
           <FeatureCard
@@ -82,6 +86,15 @@ export default function HomeScreen() {
           ) : null}
         </View>
       </Section>
+
+      <PromoCard
+        icon="empathy"
+        accent="quiet"
+        title="Empathy Lens"
+        body="Two minutes in someone else's shoes: low vision, colour blindness, tremor and screen readers."
+        action="Try it"
+        onPress={() => router.push("/empathy" as never)}
+      />
 
       {openPoll ? (
         <VoteCallout poll={openPoll} />

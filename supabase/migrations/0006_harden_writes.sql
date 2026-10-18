@@ -215,7 +215,7 @@ create or replace function public.is_valid_features(candidate jsonb)
 returns boolean
 language sql
 immutable
-as $
+as $$
     -- `case` rather than `and`: SQL does not promise short-circuit evaluation,
     -- and the array functions raise on anything that is not an array.
     select case
@@ -231,7 +231,7 @@ as $
                or length(item ->> 'label') > 80
         )
     end;
-$;
+$$;
 
 alter table public.places drop constraint if exists places_features_shape;
 alter table public.places add constraint places_features_shape

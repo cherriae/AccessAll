@@ -39,9 +39,11 @@ export interface PlaceMapProps {
   /** Reports and elevator outages drawn alongside the places. */
   pins?: MapPin[];
   onPinPress?: (pin: MapPin) => void;
+  /** Where to open when there is no place to centre on. Defaults to Midtown Manhattan. */
+  initialCenter?: { latitude: number; longitude: number };
 }
 
-export function PlaceMap({ places, selectedId, onSelect, onBoundsChange, pins = NO_PINS, onPinPress }: PlaceMapProps) {
+export function PlaceMap({ places, selectedId, onSelect, onBoundsChange, pins = NO_PINS, onPinPress, initialCenter }: PlaceMapProps) {
   const camera = useRef<CameraRef>(null);
   const map = useRef<MapRef>(null);
   const reduceMotion = useReducedMotion();
@@ -56,7 +58,7 @@ export function PlaceMap({ places, selectedId, onSelect, onBoundsChange, pins = 
     camera.current?.flyTo({ center: [selected.longitude, selected.latitude], zoom: 14, duration: reduceMotion ? 0 : 500 });
   }, [selected, reduceMotion]);
 
-  const initial = selected ?? places[0];
+  const initial = selected ?? places[0] ?? initialCenter;
 
   return (
     <View style={styles.frame}>

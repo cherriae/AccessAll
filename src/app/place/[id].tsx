@@ -7,6 +7,7 @@ import { PlaceDirections } from '@/components/place-directions';
 import { PlaceHistory } from '@/components/place-history';
 import { ReportContent } from '@/components/report-content';
 import { PlaceMap } from '@/components/place-map';
+import { RampCheck } from '@/components/ramp-check';
 import { SoundMeter } from '@/components/sound-meter';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -294,6 +295,13 @@ function PlaceDetail({ place, isSaved }: { place: Place; isSaved: boolean }) {
         </Card>
       </Section>
       <PlaceDirections
+        placeId={isSaved ? place.id : undefined}
+        userId={user?.id}
+        ensurePlace={persistPlace}
+        onSaved={finishDraft}
+        onSignIn={() => router.push('/auth' as never)}
+      />
+      <RampCheck
         placeId={isSaved ? place.id : undefined}
         userId={user?.id}
         ensurePlace={persistPlace}

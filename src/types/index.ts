@@ -149,7 +149,8 @@ export interface MapBounds {
  */
 export interface MapPin {
   id: string;
-  kind: 'report' | 'outage';
+  /** `fixed` is a resolved barrier, shown only in the Fix Timeline replay. */
+  kind: 'report' | 'outage' | 'fixed';
   latitude: number;
   longitude: number;
   /** Read by screen readers and shown on hover. */
@@ -241,6 +242,8 @@ export interface AppSettings {
   campusName: string;
   activitySeenAt: Timestamp | null;
   accessNeeds: AccessNeed[];
+  /** MTA station complex ids that Detour Radar watches. */
+  watchedStations: string[];
 }
 
 /* -------------------------------------------------------------------------- */
@@ -322,4 +325,5 @@ export interface ImpactSummary {
   reviewsTotal: number;
   soundMeasurements: number;
   contributors: number;
+  rampsMeasured: number;
 }

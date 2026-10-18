@@ -35,9 +35,11 @@ export interface PlaceMapProps {
   /** Reports and elevator outages drawn alongside the places. */
   pins?: MapPin[];
   onPinPress?: (pin: MapPin) => void;
+  /** Where to open when there is no place to centre on. Defaults to Midtown Manhattan. */
+  initialCenter?: { latitude: number; longitude: number };
 }
 
-export function PlaceMap({ places, selectedId, onSelect, onBoundsChange, pins = NO_PINS, onPinPress }: PlaceMapProps) {
+export function PlaceMap({ places, selectedId, onSelect, onBoundsChange, pins = NO_PINS, onPinPress, initialCenter }: PlaceMapProps) {
   const container = useRef<View>(null);
   const map = useRef<MapLibreMap | null>(null);
   const markers = useRef<Marker[]>([]);
@@ -48,13 +50,15 @@ export function PlaceMap({ places, selectedId, onSelect, onBoundsChange, pins = 
   // map every time the parent re-renders with a new closure.
   const boundsCallback = useRef(onBoundsChange);
   useEffect(() => { boundsCallback.current = onBoundsChange; }, [onBoundsChange]);
+  // Only read when the map is created; later changes do not move the camera.
+  const startCenter = useRef(initialCenter);
 
   useEffect(() => {
     if (!container.current || map.current) return;
     const instance = new MapLibreMap({
       container: container.current as unknown as HTMLElement,
       style: MAP_STYLE,
-      center: [-73.9822, 40.7532],
+      center: startCenter.current ? [startCenter.current.longitude, startCenter.current.latitude] : [-73.9822, 40.7532],
       zoom: 11,
     });
     instance.addControl(new NavigationControl(), 'top-right');

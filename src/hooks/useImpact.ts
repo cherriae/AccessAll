@@ -2,6 +2,7 @@ import type { ImpactSummary, Report } from '@/types';
 import { useQuery } from '@tanstack/react-query';
 
 import { toImpactSummary, toReport } from '@/lib/mappers';
+import type { TimelineReport } from '@/lib/timeline';
 import { supabase, unwrap, unwrapOne } from '@/lib/supabase';
 
 /**
@@ -33,6 +34,32 @@ export function useTopOpenReports(limit = 5) {
             );
 
             return rows.map(toReport);
+        },
+    });
+}
+
+/** Every placed report with its fix date, oldest first, for the Fix Timeline replay. */
+export function useReportTimeline() {
+    return useQuery<TimelineReport[]>({
+        queryKey: ['reports', 'timeline'],
+        queryFn: async () => {
+            const rows = unwrap(
+                await supabase
+                    .from('reports')
+                    .select('id, title, latitude, longitude, created_at, resolved_at')
+                    .not('latitude', 'is', null)
+                    .order('created_at', { ascending: true })
+                    .limit(1000),
+            );
+
+            return rows.flatMap((row) => row.latitude === null || row.longitude === null ? [] : [{
+                id: row.id,
+                title: row.title,
+                latitude: row.latitude,
+                longitude: row.longitude,
+                createdAt: row.created_at,
+                resolvedAt: row.resolved_at,
+            }]);
         },
     });
 }

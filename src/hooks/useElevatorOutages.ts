@@ -1,4 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
+
+import { useSettings } from '@/hooks/useSettings';
+import { buildComplexes, radarStatuses } from '@/lib/detour';
 
 import {
     EQUIPMENT_URL,
@@ -57,3 +61,35 @@ export function useElevatorOutages(enabled: boolean) {
         isError: equipment.isError || stations.isError || outages.isError,
     };
 }
+
+/** Every NYC subway station complex, keyed by complex id. Shares the cached station list. */
+export function useStationComplexes(enabled = true) {
+    const stations = useReferenceData<RawStation[]>('stations', STATIONS_URL, enabled);
+    const complexes = useMemo(() => (stations.data ? buildComplexes(stations.data) : undefined), [stations.data]);
+    return { data: complexes, isLoading: stations.isLoading, isError: stations.isError };
+}
+
+/**
+ * Detour Radar for the signed-in user: live status of each watched station,
+ * with step-free alternatives when one is disrupted.
+ */
+export function useDetourRadar() {
+    const watched = useSettings().data?.watchedStations ?? NO_STATIONS;
+    const enabled = watched.length > 0;
+    const complexes = useStationComplexes(enabled);
+    const outages = useElevatorOutages(enabled);
+
+    const statuses = useMemo(
+        () => (complexes.data && outages.data ? radarStatuses(watched, complexes.data, outages.data) : undefined),
+        [watched, complexes.data, outages.data],
+    );
+
+    return {
+        watched,
+        statuses,
+        isLoading: enabled && (complexes.isLoading || outages.isLoading),
+        isError: complexes.isError || outages.isError,
+    };
+}
+
+const NO_STATIONS: string[] = [];
