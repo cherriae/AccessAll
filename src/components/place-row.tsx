@@ -1,8 +1,11 @@
 import { StyleSheet, View } from 'react-native';
 
+import { fitAccent, fitSummary } from '@/components/access-fit-card';
 import { Badge } from '@/components/ui/badge';
 import { ListRow } from '@/components/ui/list-row';
 import { Spacing } from '@/constants/theme';
+import { useAccessNeeds } from '@/hooks/useSettings';
+import { accessFit } from '@/lib/access-fit';
 import { formatQuietScore, formatRating } from '@/lib/format';
 import type { Place } from '@/types';
 
@@ -18,6 +21,7 @@ export interface PlaceRowProps {
 export function PlaceRow({ place, onPress }: PlaceRowProps) {
   const rating = formatRating(place.rating, place.reviewCount);
   const quiet = formatQuietScore(place.quietScore);
+  const fit = accessFit(place, useAccessNeeds());
 
   const shown = place.features.slice(0, VISIBLE_FEATURES);
   const hidden = place.features.length - shown.length;
@@ -32,6 +36,7 @@ export function PlaceRow({ place, onPress }: PlaceRowProps) {
       onPress={onPress ? () => onPress(place) : undefined}
       accessibilityLabel={[
         place.name,
+        ...(fit ? [fitSummary(fit)] : []),
         place.category,
         rating.long,
         quiet.long,
@@ -40,6 +45,7 @@ export function PlaceRow({ place, onPress }: PlaceRowProps) {
       accessibilityHint={onPress ? 'Opens the place details' : undefined}
     >
       <View style={styles.footer}>
+        {fit ? <Badge label={`${fit.score}% fit for you`} icon="accessibility" accent={fitAccent(fit.score)} /> : null}
         {shown.map((feature) => (
           <Badge key={feature.id} label={feature.label} icon={feature.icon} accent="explore" />
         ))}

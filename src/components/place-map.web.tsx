@@ -5,7 +5,11 @@ import { useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Radius } from '@/constants/theme';
-import type { MapBounds, Place } from '@/types';
+import { useReducedMotion } from '@/hooks/use-reduced-motion';
+import { PIN_COLORS } from '@/constants/map';
+import type { MapBounds, MapPin, Place } from '@/types';
+
+const NO_PINS: MapPin[] = [];
 
 const MAP_STYLE: StyleSpecification = {
   version: 8,
@@ -28,25 +32,33 @@ export interface PlaceMapProps {
   onSelect: (place: Place) => void;
   /** Fires once the map settles, so callers can fetch just what is visible. */
   onBoundsChange?: (bounds: MapBounds) => void;
+  /** Reports and elevator outages drawn alongside the places. */
+  pins?: MapPin[];
+  onPinPress?: (pin: MapPin) => void;
+  /** Where to open when there is no place to centre on. Defaults to Midtown Manhattan. */
+  initialCenter?: { latitude: number; longitude: number };
 }
 
-export function PlaceMap({ places, selectedId, onSelect, onBoundsChange }: PlaceMapProps) {
+export function PlaceMap({ places, selectedId, onSelect, onBoundsChange, pins = NO_PINS, onPinPress, initialCenter }: PlaceMapProps) {
   const container = useRef<View>(null);
   const map = useRef<MapLibreMap | null>(null);
   const markers = useRef<Marker[]>([]);
+  const reduceMotion = useReducedMotion();
 
   // Held in a ref so the map is created exactly once. Listing the callback as a
   // dependency of the setup effect below would tear down and rebuild the whole
   // map every time the parent re-renders with a new closure.
   const boundsCallback = useRef(onBoundsChange);
   useEffect(() => { boundsCallback.current = onBoundsChange; }, [onBoundsChange]);
+  // Only read when the map is created; later changes do not move the camera.
+  const startCenter = useRef(initialCenter);
 
   useEffect(() => {
     if (!container.current || map.current) return;
     const instance = new MapLibreMap({
       container: container.current as unknown as HTMLElement,
       style: MAP_STYLE,
-      center: [-73.9822, 40.7532],
+      center: startCenter.current ? [startCenter.current.longitude, startCenter.current.latitude] : [-73.9822, 40.7532],
       zoom: 11,
     });
     instance.addControl(new NavigationControl(), 'top-right');
@@ -77,13 +89,14 @@ export function PlaceMap({ places, selectedId, onSelect, onBoundsChange }: Place
       const element = document.createElement('button');
       element.type = 'button';
       element.title = place.name;
-      element.setAttribute('aria-label', `Show ${place.name} on the map`);
+      element.setAttribute('aria-label', place.category ? `${place.name}, ${place.category}` : place.name);
+      element.setAttribute('aria-pressed', String(selectedId === place.id));
       Object.assign(element.style, {
         width: selectedId === place.id ? '36px' : '30px',
         height: selectedId === place.id ? '36px' : '30px',
         borderRadius: '999px',
         border: '3px solid white',
-        background: selectedId === place.id ? '#C2410C' : '#4F46E5',
+        background: selectedId === place.id ? PIN_COLORS.selected : PIN_COLORS.place,
         color: 'white', cursor: 'pointer', fontWeight: '700',
       });
       element.textContent = place.name.slice(0, 1);
@@ -92,12 +105,31 @@ export function PlaceMap({ places, selectedId, onSelect, onBoundsChange }: Place
         .setLngLat([place.longitude, place.latitude])
         .addTo(map.current!);
     });
-  }, [onSelect, places, selectedId]);
 
+    for (const pin of pins) {
+      const element = document.createElement('button');
+      element.type = 'button';
+      element.title = pin.label;
+      element.setAttribute('aria-label', pin.label);
+      Object.assign(element.style, {
+        width: '22px', height: '22px', borderRadius: pin.kind === 'outage' ? '6px' : '999px',
+        border: '3px solid white', background: PIN_COLORS[pin.kind], cursor: onPinPress ? 'pointer' : 'default',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.35)',
+      });
+      if (onPinPress) element.onclick = () => onPinPress(pin);
+      markers.current.push(new MapLibreMarker({ element }).setLngLat([pin.longitude, pin.latitude]).addTo(map.current!));
+    }
+  }, [onSelect, places, selectedId, pins, onPinPress]);
+
+  // Fly only when the *selection* changes. `places` is refetched after every
+  // pan, and re-flying on that snapped the map back to the selection.
+  const flownTo = useRef<string | undefined>(undefined);
   useEffect(() => {
     const selected = places.find((place) => place.id === selectedId);
-    if (selected) map.current?.flyTo({ center: [selected.longitude, selected.latitude], zoom: 14 });
-  }, [places, selectedId]);
+    if (!selected || flownTo.current === selected.id) return;
+    flownTo.current = selected.id;
+    map.current?.flyTo({ center: [selected.longitude, selected.latitude], zoom: 14, animate: !reduceMotion });
+  }, [places, selectedId, reduceMotion]);
 
   return <View ref={container} style={styles.map} />;
 }

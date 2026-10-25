@@ -1,15 +1,21 @@
 import type { LocationSelection, Report, ReportComment } from '@/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { useAuthSession } from '@/lib/auth-context';
 import { toReport, toReportComment } from '@/lib/mappers';
 import { requireUserId, supabase, unwrap, unwrapOne } from '@/lib/supabase';
 
-export function useSchoolReport() {
+/** Everything but the generated `location_point`, which arrives as a WKB blob. */
+// One literal (not concatenated) so supabase-js can infer the row type from it.
+const REPORT_COLUMNS =
+    'id, title, location, latitude, longitude, status, created_by, created_at, upvotes, resolved_at, staff_note, staff_photo_path, staff_updated_by, staff_updated_at';
+
+export function useReports() {
     return useQuery<Report[]>({
         queryKey: ['reports'],
         queryFn: async () => {
             const rows = unwrap(
-                await supabase.from('reports').select('*').order('created_at', { ascending: false }),
+                await supabase.from('reports').select(REPORT_COLUMNS).order('created_at', { ascending: false }).limit(200),
             );
 
             return rows.map(toReport);
@@ -23,7 +29,7 @@ export function useReport(id?: string) {
         enabled: Boolean(id),
         queryFn: async () => {
             const row = unwrap(
-                await supabase.from('reports').select('*').eq('id', id!).maybeSingle(),
+                await supabase.from('reports').select(REPORT_COLUMNS).eq('id', id!).maybeSingle(),
             );
 
             return row ? toReport(row) : null;
@@ -31,7 +37,7 @@ export function useReport(id?: string) {
     });
 }
 
-export function useSchoolReportAdd() {
+export function useAddReport() {
     const queryClient = useQueryClient();
 
     return useMutation({
@@ -47,7 +53,6 @@ export function useSchoolReportAdd() {
                     location: payload.location.name.trim(),
                     latitude: payload.location.latitude,
                     longitude: payload.location.longitude,
-                    status: 'open',
                     created_by: userId,
                 })
                 .select('id')
@@ -59,6 +64,7 @@ export function useSchoolReportAdd() {
                 queryClient.invalidateQueries({ queryKey: ['reports'] }),
                 queryClient.invalidateQueries({ queryKey: ['currentUser'] }),
                 queryClient.invalidateQueries({ queryKey: ['activity'] }),
+                queryClient.invalidateQueries({ queryKey: ['impact'] }),
             ]);
 
             return row.id;
@@ -66,33 +72,59 @@ export function useSchoolReportAdd() {
     });
 }
 
-export function useSchoolReportUpdate() {
+/**
+ * Moves a report between open, in progress and resolved.
+ *
+ * Only the author may do this (`reports_update_own`). Selecting the row back
+ * turns a policy refusal — which PostgREST reports as zero rows, not an error —
+ * into a failure the screen can show.
+ */
+export function useUpdateReportStatus() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async (payload: {
-            id: string;
-            title: string;
-            location: string;
-            status: Report['status'];
-        }) => {
-            unwrap(
+        mutationFn: async (payload: { id: string; status: Report['status'] }) => {
+            await requireUserId();
+
+            unwrapOne(
                 await supabase
                     .from('reports')
-                    .update({
-                        title: payload.title.trim(),
-                        location: payload.location.trim(),
-                        status: payload.status,
-                    })
-                    .eq('id', payload.id),
+                    .update({ status: payload.status })
+                    .eq('id', payload.id)
+                    .select('id')
+                    .maybeSingle(),
+                'Report could not be updated',
             );
 
             await Promise.all([
                 queryClient.invalidateQueries({ queryKey: ['reports'] }),
                 queryClient.invalidateQueries({ queryKey: ['report', payload.id] }),
+                queryClient.invalidateQueries({ queryKey: ['impact'] }),
             ]);
+        },
+    });
+}
 
-            return payload.id;
+/** Deletes the signed-in user's own report, with its comments and upvotes. */
+export function useDeleteReport() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (id: string) => {
+            await requireUserId();
+
+            unwrapOne(
+                await supabase.from('reports').delete().eq('id', id).select('id').maybeSingle(),
+                'Report could not be deleted',
+            );
+
+            queryClient.removeQueries({ queryKey: ['report', id] });
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: ['reports'] }),
+                queryClient.invalidateQueries({ queryKey: ['currentUser'] }),
+                queryClient.invalidateQueries({ queryKey: ['activity'] }),
+                queryClient.invalidateQueries({ queryKey: ['impact'] }),
+            ]);
         },
     });
 }
@@ -107,7 +139,8 @@ export function useReportComments(reportId?: string) {
                     .from('report_comment_feed')
                     .select('*')
                     .eq('report_id', reportId!)
-                    .order('created_at', { ascending: true }),
+                    .order('created_at', { ascending: true })
+                    .limit(500),
             );
 
             return rows.map(toReportComment);
@@ -131,6 +164,45 @@ export function useAddReportComment() {
             );
 
             await queryClient.invalidateQueries({ queryKey: ['reportComments', reportId] });
+        },
+    });
+}
+
+export function useDeleteReportComment() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (comment: { id: string; reportId: string }) => {
+            await requireUserId();
+
+            unwrapOne(
+                await supabase.from('report_comments').delete().eq('id', comment.id).select('id').maybeSingle(),
+                'Comment could not be deleted',
+            );
+
+            await queryClient.invalidateQueries({ queryKey: ['reportComments', comment.reportId] });
+        },
+    });
+}
+
+/** Whether the signed-in user has marked this report as affecting them. */
+export function useHasUpvoted(reportId?: string) {
+    const { userId } = useAuthSession();
+
+    return useQuery<boolean>({
+        queryKey: ['reportUpvote', reportId, userId],
+        enabled: Boolean(reportId && userId),
+        queryFn: async () => {
+            const row = unwrap(
+                await supabase
+                    .from('report_upvotes')
+                    .select('report_id')
+                    .eq('report_id', reportId!)
+                    .eq('user_id', userId!)
+                    .maybeSingle(),
+            );
+
+            return row !== null;
         },
     });
 }
@@ -177,7 +249,9 @@ export function useToggleReportUpvote() {
             await Promise.all([
                 queryClient.invalidateQueries({ queryKey: ['reports'] }),
                 queryClient.invalidateQueries({ queryKey: ['report', reportId] }),
+                queryClient.invalidateQueries({ queryKey: ['reportUpvote', reportId] }),
                 queryClient.invalidateQueries({ queryKey: ['currentUser'] }),
+                queryClient.invalidateQueries({ queryKey: ['impact'] }),
             ]);
 
             return !existing;

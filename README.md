@@ -53,7 +53,49 @@ npx expo run:android
 # or: npx expo run:ios
 ```
 
+Without Android Studio, build it in the cloud with EAS instead. `.env` is not uploaded, so
+give EAS the two public Supabase values once, then build and install the APK it links to:
+
+```powershell
+eas env:create --name EXPO_PUBLIC_SUPABASE_URL --value <url> --environment development --visibility plaintext
+eas env:create --name EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY --value <key> --environment development --visibility plaintext
+eas build --profile development --platform android
+npx expo start --dev-client
+```
+
 Create an account from the **Profile** tab the first time you run it.
+
+## What makes AccessAll different
+
+- **My access profile** — people choose their needs (wheelchair, temporary injury, blind or low
+  vision, Deaf or hard of hearing, sensory sensitive). Every place then shows how well it fits
+  *them*, "confirmed" vs "not confirmed yet", and Explore can sort and filter by fit.
+- **Report → letter → fix** — any open report can be turned into a formal letter to school staff
+  (evidence, people affected, Section 504 / ADA framing, a dated request for a reply). School
+  staff accounts can post updates with a note and photo proof; everyone affected is notified.
+- **Impact dashboard** — barriers reported, fixed, people affected, median days to fix, and the
+  most urgent open barriers, live.
+- **Measured quiet scores** — reviewers can measure noise with the microphone for 10 seconds
+  instead of guessing. Nothing is recorded or uploaded; only the level is kept.
+- **Step-free directions** — community-written, step-by-step routes through a building, each
+  step with an optional photo.
+- **Live subway elevator outages** — when the map shows New York City, Explore shows elevators
+  out of service right now as map pins (with toggles for places, open barriers and outages) and
+  as a list with the MTA's suggested alternative.
+- **Detour Radar** — people watch up to 10 stations; when an elevator on a station's step-free
+  route is out, the home screen says so and ranks the nearest working step-free stations,
+  preferring ones on the same line (`src/lib/detour.ts`).
+- **Ramp check** — lay a phone on a ramp and the accelerometer measures its slope against the
+  ADA's 1:12 limit; a place shows the median of everyone's measurements (`src/lib/slope.ts`).
+- **Empathy Lens** — four short simulations (low vision, colour blindness, tremor, screen
+  reader), each followed by the design choice AccessAll makes because of it (`/empathy`).
+- **Fix Timeline** — the Impact page replays every report on the map: amber when reported,
+  green when fixed.
+- **Safe for students** — anyone can report a comment, review, report or set of directions;
+  three reports hide it until staff decide; people can block each other. Every change to a
+  place's access details is logged and staff can undo it.
+- **Landing page and onboarding** — signed-out web visitors land on a live night-map of the city
+  (`src/components/landing`); phones get a four-step walkthrough on first launch.
 
 ## Database
 
@@ -67,7 +109,29 @@ password material itself.
   and comments are world-readable but writable only as yourself; settings and the activity feed
   are private to their owner. Aggregate columns (`places.rating`, `reports.upvotes`,
   `polls.vote_count`) are maintained by triggers and are not writable through the API, so
-  ratings and vote counts cannot be forged by a client.
+  ratings and vote counts cannot be forged by a client. Column grants also decide what each
+  insert may set (`0006`): email addresses are not readable through the API, a place's name,
+  coordinates and source link are fixed once created (only its guide and features are
+  community-editable, with the guide author stamped by a trigger), new reports and polls must
+  carry coordinates, and polls refuse votes after they close.
+- **Notifications** are rows in the activity feed written by triggers (`0007`) when someone
+  comments on your report or a report you follow changes status. They respect the
+  notification switches in Settings; `user_settings.activity_seen_at` drives the unread badge.
+- **Access features** (`0009`): `user_settings.access_needs`, the `staff_members` table and
+  `staff_update_report` function, `reports.resolved_at`, the `impact_summary` view,
+  `reviews.quiet_measured`, `place_directions`, and a public `photos` storage bucket that each
+  user may only write into their own folder.
+- **Privacy and abuse limits** (`0010`): other people see only "First L."; last names,
+  school and who voted for what are private; per-user rate limits on everything that can be
+  posted; a report's wording locks once others have backed it.
+- **Moderation and history** (`0011`): `content_reports`, `user_blocks`, `hidden_at` on
+  user content, the `moderation_queue` view and `moderate_content` / `revert_place_edit`
+  functions for staff, and `place_edits`. `0012` keeps hidden content hidden after its
+  author deletes their account.
+- **Ramp check and Detour Radar** (`0013`): `ramp_measurements` (one per person per place),
+  `user_settings.watched_stations`, and `ramps_measured` in `impact_summary`.
+- **Account deletion** is the `delete_my_account` function (`0008`). Reports and places the
+  person created stay, without their name.
 - **Geography** uses PostGIS. `places.location` is a generated point with a GiST index; the
   `places_nearby` and `places_in_bounds` functions serve map queries from that index rather
   than scanning latitude/longitude columns. Reports and polls carry the same shape: their
@@ -87,6 +151,15 @@ password material itself.
    on. It is currently **off** so accounts work immediately for testing. Turn it back on before
    any real launch, and configure a custom SMTP sender — the built-in one is rate limited and
    intended for development only.
+4. Under **Authentication → URL Configuration**, set the **Site URL** to where the web app is
+   served and add both `<site>/auth` and `accessall://auth` to **Redirect URLs**, so password
+   reset and email confirmation links land back in the app (web and phone). Links use PKCE, so
+   an intercepted link is useless without the device that asked for it. Also turn on
+   **Secure password change** under Authentication → Providers → Email.
+5. Make school staff accounts in the SQL Editor (the app cannot grant this):
+   `insert into public.staff_members (user_id, title) values ('<auth user id>', 'Assistant Principal');`
+6. Run [`supabase/tests/rls_smoke_test.sql`](supabase/tests/rls_smoke_test.sql) in the SQL
+   Editor. Every row should read `ok = true`; it rolls back and leaves nothing behind.
 
 ## Maps
 
@@ -106,6 +179,9 @@ password material itself.
 
 ```powershell
 npm run lint
-npx tsc --noEmit
+npm run typecheck
+npm test
 npx expo export --platform web
 ```
+
+The same lint, typecheck and test steps run in GitHub Actions on every push and pull request.

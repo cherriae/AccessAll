@@ -1,9 +1,9 @@
-import type { AppSettings } from '@/types';
+import type { AccessNeed, AppSettings } from '@/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useAuthSession } from '@/lib/auth-context';
 import { toAppSettings } from '@/lib/mappers';
-import { requireUserId, supabase, unwrap } from '@/lib/supabase';
+import { requireUserId, supabase, unwrap, unwrapOne } from '@/lib/supabase';
 
 /**
  * Notification preferences for the signed-in user.
@@ -56,3 +56,56 @@ export function useUpdateSettings() {
         },
     });
 }
+
+/** Saves the access profile used to score places for this person. */
+export function useUpdateAccessNeeds() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (needs: AccessNeed[]) => {
+            const userId = await requireUserId();
+
+            unwrapOne(
+                await supabase
+                    .from('user_settings')
+                    .update({ access_needs: needs })
+                    .eq('user_id', userId)
+                    .select('user_id')
+                    .maybeSingle(),
+                'Access profile could not be saved',
+            );
+
+            await queryClient.invalidateQueries({ queryKey: ['settings'] });
+        },
+    });
+}
+
+/** Saves the stations Detour Radar watches (MTA complex ids, at most 10). */
+export function useUpdateWatchedStations() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (stations: string[]) => {
+            const userId = await requireUserId();
+
+            unwrapOne(
+                await supabase
+                    .from('user_settings')
+                    .update({ watched_stations: stations })
+                    .eq('user_id', userId)
+                    .select('user_id')
+                    .maybeSingle(),
+                'Your stations could not be saved',
+            );
+
+            await queryClient.invalidateQueries({ queryKey: ['settings'] });
+        },
+    });
+}
+
+/** The signed-in user's access needs; empty when signed out or not set. */
+export function useAccessNeeds(): AccessNeed[] {
+    return useSettings().data?.accessNeeds ?? EMPTY_NEEDS;
+}
+
+const EMPTY_NEEDS: AccessNeed[] = [];

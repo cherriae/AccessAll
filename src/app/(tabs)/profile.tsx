@@ -12,6 +12,7 @@ import { Radius, Spacing } from "@/constants/theme";
 import { useAccent } from "@/hooks/use-theme";
 import { useSignOut } from "@/hooks/useAuth";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useIsStaff } from "@/hooks/useStaff";
 import { formatCount } from "@/lib/format";
 
 interface SettingsItem {
@@ -20,22 +21,25 @@ interface SettingsItem {
   subtitle: string;
   icon: IconName;
   accent: AccentName;
+  route: "/access-profile" | "/settings";
 }
 
 const SETTINGS: SettingsItem[] = [
   {
     id: "access",
-    title: "Accessibility preferences",
-    subtitle: "Text size, motion, screen reader hints",
+    title: "My access profile",
+    subtitle: "Your needs, so places are scored for you",
     icon: "accessibility",
     accent: "campus",
+    route: "/access-profile",
   },
   {
     id: "notifications",
     title: "Notifications",
-    subtitle: "Report updates and open votes",
+    subtitle: "Replies and progress on your reports",
     icon: "notifications",
     accent: "community",
+    route: "/settings",
   },
   {
     id: "help",
@@ -43,6 +47,7 @@ const SETTINGS: SettingsItem[] = [
     subtitle: "Get support or suggest an improvement",
     icon: "help",
     accent: "explore",
+    route: "/settings",
   },
 ];
 
@@ -51,6 +56,7 @@ export default function ProfileScreen() {
   const brand = useAccent("campus");
   const currentUser = useCurrentUser().data;
   const signOut = useSignOut();
+  const isStaff = useIsStaff().data ?? false;
 
   const initials = currentUser
     ? `${currentUser.firstName.at(0) ?? ""}${currentUser.lastName.at(0) ?? ""}`
@@ -83,7 +89,9 @@ export default function ProfileScreen() {
             {fullName}
           </Text>
           <Text variant="callout" color="textSecondary">
-            {currentUser?.affiliation ?? "Sign in to sync your stats"}
+            {currentUser
+              ? currentUser.affiliation || "Add your school in Settings"
+              : "Sign in to sync your stats"}
           </Text>
         </View>
       </Card>
@@ -113,9 +121,18 @@ export default function ProfileScreen() {
               accent={item.accent}
               title={item.title}
               subtitle={item.subtitle}
-              onPress={() => router.push('/settings' as never)}
+              onPress={() => router.push(item.route as never)}
             />
           ))}
+          {isStaff ? (
+            <ListRow
+              icon="shield"
+              accent="campus"
+              title="Moderation queue"
+              subtitle="Review content students have reported"
+              onPress={() => router.push("/moderation" as never)}
+            />
+          ) : null}
         </View>
       </Section>
 

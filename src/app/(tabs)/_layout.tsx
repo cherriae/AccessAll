@@ -1,9 +1,26 @@
-import { Tabs } from 'expo-router';
+import { Redirect, Tabs, useRouter } from 'expo-router';
+import { useState } from 'react';
+import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Landing } from '@/components/landing/landing';
+
 import { Icon, type IconName } from '@/components/ui/icon';
-import { Spacing } from '@/constants/theme';
+import { Fonts, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useAuthSession } from '@/lib/auth-context';
+import { useOnboardingDone } from '@/lib/onboarding';
+
+const LANDING_KEY = 'landing:entered';
+
+/** Whether this browser tab has already gone from the landing page into the app. */
+function hasEnteredApp() {
+  try {
+    return typeof sessionStorage !== 'undefined' && sessionStorage.getItem(LANDING_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Tab bar sizing.
@@ -46,6 +63,27 @@ const TABS: TabDefinition[] = [
 export default function TabsLayout() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const { session, isReady } = useAuthSession();
+  const onboarded = useOnboardingDone();
+  const [entered, setEntered] = useState(hasEnteredApp);
+
+  // Phones: the first launch starts with the walkthrough.
+  if (Platform.OS !== 'web' && onboarded === false) return <Redirect href="/onboarding" />;
+
+  // Web: visitors who are not signed in meet the landing page first. Once they
+  // step into the app it stays out of the way for the rest of the visit.
+  if (Platform.OS === 'web' && isReady && !session && !entered) {
+    return (
+      <Landing
+        onEnter={(path) => {
+          try { sessionStorage.setItem(LANDING_KEY, '1'); } catch { /* private mode */ }
+          setEntered(true);
+          router.push(path as never);
+        }}
+      />
+    );
+  }
 
   return (
     <Tabs
@@ -65,7 +103,7 @@ export default function TabsLayout() {
         tabBarLabelStyle: {
           fontSize: LABEL_FONT_SIZE,
           lineHeight: LABEL_LINE_HEIGHT,
-          fontWeight: '600',
+          fontFamily: Fonts.bodyBold,
         },
       }}
     >

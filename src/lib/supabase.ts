@@ -61,9 +61,14 @@ export const supabase = createClient<Database>(clientUrl, clientKey, {
         storage: isPrerender || Platform.OS === 'web' ? undefined : AsyncStorage,
         persistSession: !isPrerender,
         autoRefreshToken: !isPrerender,
-        // No magic-link or OAuth redirects yet, so there is never a session in
-        // the URL to detect — and looking for one slows first paint on web.
-        detectSessionInUrl: false,
+        // Email links (password reset, sign-up confirmation) come back with a
+        // one-time `?code=`. PKCE means that code is useless without the
+        // verifier this device stored when it asked for the link, so another
+        // app that intercepts the `accessall://` link on a phone gets nothing.
+        flowType: 'pkce',
+        // Web reads the code from the address bar itself; native receives it
+        // as a deep link, handled in `auth-context`.
+        detectSessionInUrl: !isPrerender && Platform.OS === 'web',
     },
 });
 

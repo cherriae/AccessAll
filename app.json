@@ -1,21 +1,30 @@
 {
   "expo": {
     "name": "AccessAll",
-    "slug": "AccessAll",
+    "slug": "accessall",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "AccessAll",
+    "scheme": "accessall",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/images/icon.png"
+      "icon": "./assets/images/icon.png",
+      "bundleIdentifier": "com.cherriae.accessall",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
+      "package": "com.cherriae.accessall",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "allowBackup": false,
+      "permissions": [
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
     },
     "web": {
       "output": "static",
@@ -24,14 +33,14 @@
     "plugins": [
       "@maplibre/maplibre-react-native",
       [
-      "expo-router",
-      {
-        "headers": {
+        "expo-router",
+        {
+          "headers": {
             "Cross-Origin-Embedder-Policy": "credentialless",
             "Cross-Origin-Opener-Policy": "same-origin"
+          }
         }
-      }
-    ],
+      ],
       [
         "expo-splash-screen",
         {
@@ -39,12 +48,38 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "AccessAll uses the microphone for a few seconds to measure how loud a place is. Nothing is recorded or uploaded.",
+          "enableBackgroundPlayback": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "AccessAll lets you attach photos of entrances, routes and fixes to your contributions.",
+          "cameraPermission": "AccessAll lets you take photos of entrances, routes and fixes for your contributions.",
+          "microphonePermission": false
+        }
       ]
-
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {
+        "headers": {
+          "Cross-Origin-Embedder-Policy": "credentialless",
+          "Cross-Origin-Opener-Policy": "same-origin"
+        }
+      },
+      "eas": {
+        "projectId": "b19731e0-7075-4443-97f6-716f18c0eaa5"
+      }
+    },
+    "owner": "cherriae"
   }
 }

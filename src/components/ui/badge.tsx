@@ -2,7 +2,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { Icon, type IconName } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
-import { Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing } from '@/constants/theme';
 import { useAccents } from '@/hooks/use-theme';
 import type { AccentName } from '@/constants/theme';
 
@@ -50,7 +50,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.one,
   },
   label: {
-    fontWeight: '600',
+    fontFamily: Fonts.bodyBold,
     flexShrink: 1,
   },
 });

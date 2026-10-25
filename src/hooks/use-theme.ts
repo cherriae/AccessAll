@@ -17,10 +17,6 @@ export function useScheme(): ResolvedScheme {
   return useColorScheme() === 'dark' ? 'dark' : 'light';
 }
 
-export function useIsDark(): boolean {
-  return useScheme() === 'dark';
-}
-
 /** Semantic colors for the active scheme. */
 export function useTheme() {
   return Colors[useScheme()];

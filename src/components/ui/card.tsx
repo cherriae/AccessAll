@@ -40,11 +40,13 @@ export function Card({ tint, borderColor, padded = true, style, ...rest }: CardP
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: Radius.lg,
+    borderRadius: Radius.xl,
     borderWidth: 1,
-    overflow: 'hidden',
+    // A soft, low shadow: enough lift to separate cards from the warm canvas
+    // without the heavy drop shadows that make a screen feel busy.
+    boxShadow: '0 1px 2px rgba(18, 21, 40, 0.04), 0 8px 24px -12px rgba(18, 21, 40, 0.12)',
   },
   padded: {
-    padding: Spacing.three,
+    padding: Spacing.three + Spacing.one,
   },
 });

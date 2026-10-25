@@ -4,15 +4,19 @@ import { StyleSheet, View } from "react-native";
 import { ActivityRow } from "@/components/activity-row";
 import { AppHeader } from "@/components/app-header";
 import { FeatureCard } from "@/components/feature-card";
+import { HomeHero } from "@/components/home-hero";
+import { PromoCard } from "@/components/promo-card";
+import { RadarHome } from "@/components/radar-home";
+import { Appear } from "@/components/ui/appear";
 import { Screen } from "@/components/ui/screen";
 import { Section } from "@/components/ui/section";
-import { Heading } from "@/components/ui/text";
+import { Text } from "@/components/ui/text";
 import { VoteCallout } from "@/components/vote-callout";
 import { Spacing } from "@/constants/theme";
-import { useActivity } from "@/hooks/useActivity";
+import { useActivity, useUnreadActivityCount } from "@/hooks/useActivity";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useFeatures } from "@/hooks/useFeatures";
-import { usePolls, useVotePoll } from "@/hooks/usePolls";
+import { usePolls } from "@/hooks/usePolls";
 
 /** How many recent events the home screen previews before "View all". */
 const ACTIVITY_PREVIEW_COUNT = 3;
@@ -23,27 +27,29 @@ export default function HomeScreen() {
   const featuresQuery = useFeatures();
   const activityQuery = useActivity();
   const pollsQuery = usePolls();
-  const votePoll = useVotePoll();
 
   const recent = activityQuery.data?.slice(0, ACTIVITY_PREVIEW_COUNT) ?? [];
+  // Only polls still open come back; prefer one the user has not voted on.
   const openPoll =
     pollsQuery.data?.find((poll) => !poll.hasVoted) ?? pollsQuery.data?.[0];
-  const notificationCount = activityQuery.data?.length ?? 0;
+  const notificationCount = useUnreadActivityCount();
 
   return (
     <Screen
       header={
         <AppHeader
           notificationCount={notificationCount}
-          // The activity feed is the notification surface for now; when a
-          // dedicated notifications screen exists, point this at it.
+          // Comments and status changes on your reports land in the activity
+          // feed, which is where the unread count is cleared.
           onPressNotifications={() => router.push("/activity")}
         />
       }
     >
-      <Heading variant="display">
-        Welcome back, {currentUser?.firstName ?? "friend"}!
-      </Heading>
+      <Appear>
+        <HomeHero firstName={currentUser?.firstName} />
+      </Appear>
+
+      <RadarHome />
 
       <View style={styles.grid}>
         {(featuresQuery.data ?? []).map((feature) => (
@@ -64,17 +70,34 @@ export default function HomeScreen() {
             <ActivityRow
               key={event.id}
               event={event}
-              onPress={() => router.push("/activity")}
+              onPress={(item) =>
+                router.push(
+                  (item.reportId ? `/report/${item.reportId}` : "/activity") as never,
+                )
+              }
             />
           ))}
+          {recent.length === 0 && !activityQuery.isLoading ? (
+            <Text color="textSecondary">
+              {currentUser
+                ? "Nothing yet. Report a barrier or review a place to get started."
+                : "Sign in to see your reports, reviews and replies here."}
+            </Text>
+          ) : null}
         </View>
       </Section>
 
+      <PromoCard
+        icon="empathy"
+        accent="quiet"
+        title="Empathy Lens"
+        body="Two minutes in someone else's shoes: low vision, colour blindness, tremor and screen readers."
+        action="Try it"
+        onPress={() => router.push("/empathy" as never)}
+      />
+
       {openPoll ? (
-        <VoteCallout
-          poll={openPoll}
-          onVote={(poll) => votePoll.mutate(poll.id)}
-        />
+        <VoteCallout poll={openPoll} />
       ) : null}
     </Screen>
   );
